@@ -2,13 +2,15 @@ import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from saxonche import PyXdmNode, PySaxonProcessor, PyXPathProcessor
-
+from collections import namedtuple
+from functools import cmp_to_key
 
 @dataclass
 class CitableStructure:
     citeType: str
     xpath: str
     xpath_match: str
+    use: str
     delim: str = ""
     children: List["CitableStructure"] = field(default_factory=list)
 
@@ -19,6 +21,19 @@ class CitableUnit:
     ref: str
     children: List["CitableUnit"] = field(default_factory=list)
     node: Optional[PyXdmNode] = None
+
+    def to_dts(self):
+        return {
+            "citeType": self.citeType,
+            "ref": self.ref,
+            "members": [
+                member.to_dts()
+                for member in self.children
+            ]
+        }
+
+
+_simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
 
 
 def _get_xpath_proc(processor: PySaxonProcessor, elem: PyXdmNode) -> PyXPathProcessor:
@@ -69,6 +84,7 @@ class CiteStructureParser:
             citeType=unit,
             xpath="",
             xpath_match="",
+            use=use,
             delim=delim or ""
         )
 
@@ -133,6 +149,29 @@ class CiteStructureParser:
         xpath = "/".join([self.xpath_matcher[key].format(**{key: value}) for key, value in match.items()])
         return xpath
 
+    def _dispatch(
+            self,
+            child_xpath: str,
+            structure: CitableStructure,
+            processor: PySaxonProcessor,
+            xpath_processor: PyXPathProcessor,
+            unit: CitableUnit):
+        # target = self.generate_xpath(child.ref)
+        if len(structure.children) == 1:
+            self.find_refs(
+                root=xpath_processor.evaluate_single(child_xpath),
+                processor=processor,
+                structure=structure.children[0],
+                unit=unit
+            )
+        else:
+            self.find_refs_from_branches(
+                root=xpath_processor.evaluate_single(child_xpath),
+                processor=processor,
+                structure=structure.children,
+                unit=unit
+            )
+
     def find_refs(
             self,
             root: PyXdmNode,
@@ -144,6 +183,7 @@ class CiteStructureParser:
         prefix = (unit.ref + structure.delim) if unit else ""
         units = []
         xpath_prefix = "./" if unit else ""
+
         for value in xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}"):
             child = CitableUnit(
                 citeType=structure.citeType,
@@ -155,21 +195,13 @@ class CiteStructureParser:
                 units.append(child)
 
             if structure.children:
-                target = self.generate_xpath(child.ref)
-                if len(structure.children) == 1:
-                    self.find_refs(
-                        root=xpath_proc.evaluate_single(target),
-                        processor=processor,
-                        structure=structure.children[0],
-                        unit=child
-                    )
-                else:
-                    self.find_refs_from_branches(
-                        root=xpath_proc.evaluate_single(target),
-                        processor=processor,
-                        structure=structure.children,
-                        unit=child
-                    )
+                self._dispatch(
+                    child_xpath=self.generate_xpath(child.ref),
+                    structure=structure,
+                    processor=processor,
+                    xpath_processor=xpath_proc,
+                    unit=child
+                )
         return units
 
     def find_refs_from_branches(
@@ -183,11 +215,53 @@ class CiteStructureParser:
         prefix = (unit.ref) if unit else ""  # ToDo: Reinject delim
         units = []
         xpath_prefix = "./" if unit else ""
-        nodes = []
-        for s in structure:
-            nodes.extend(list(xpath_proc.evaluate(f"{xpath_prefix}{s.xpath_match}")))
 
-        # And now how do I sort this ?
+        # Custom comparison function to compare nodes by document order
+        def compare_nodes_by_doc_order(node1, node2):
+            # Check if node1 precedes node2 in document order
+            precedes = xpath_proc.evaluate_single(f'{node1.xpath} << {node2.xpath}').string_value
+            if precedes == "true":
+                return -1  # node1 comes before node2
+
+            return 1
+
+        unsorted = []
+        for s in structure:
+            unsorted.extend(
+                [
+                    (f"{prefix}{s.delim}{value}", s)
+                    for value in xpath_proc.evaluate(f"{xpath_prefix}{s.xpath}")
+                ]
+            )
+
+        unsorted = [
+            _simple_node(ref, self.generate_xpath(ref), struct)
+            for ref, struct in unsorted
+        ]
+        unsorted = sorted(unsorted, key=cmp_to_key(compare_nodes_by_doc_order))
+
+        units = []
+        for elem in unsorted:
+            child_unit = CitableUnit(
+                citeType=elem.struct.citeType,
+                ref=elem.citation
+            )
+
+            if unit:
+                unit.children.append(child_unit)
+            else:
+                units.append(child_unit)
+
+            if elem.struct.children:
+                self._dispatch(
+                    child_xpath=self.generate_xpath(child_unit.ref),
+                    structure=elem.struct,
+                    processor=processor,
+                    xpath_processor=xpath_proc,
+                    unit=child_unit
+                )
+        return units
+
 
 if __name__ == "__main__":
     processor = PySaxonProcessor()
@@ -229,7 +303,7 @@ if __name__ == "__main__":
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl/citeStructure")
     parser = CiteStructureParser(citeStructure, processor)
 
-    print(parser.find_refs(root=TEI, structure=parser.units, processor=processor))
+    print([root.to_dts() for root in parser.find_refs(root=TEI, structure=parser.units, processor=processor)])
 
     # Generate XPath for "Luke 1:2"
     assert parser.generate_xpath("Luke 1:2") == "//body/div[@n='Luke']/div[position()=1]/div[position()=2]"
