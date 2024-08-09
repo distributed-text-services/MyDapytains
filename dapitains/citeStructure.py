@@ -8,6 +8,7 @@ from saxonche import PyXdmNode, PySaxonProcessor, PyXPathProcessor
 class CitableStructure:
     citeType: str
     xpath: str
+    xpath_match: str
     delim: str = ""
     children: List["CitableStructure"] = field(default_factory=list)
 
@@ -15,7 +16,7 @@ class CitableStructure:
 @dataclass
 class CitableUnit:
     citeType: str
-    identifier: str
+    ref: str
     children: List["CitableUnit"] = field(default_factory=list)
     node: Optional[PyXdmNode] = None
 
@@ -67,6 +68,7 @@ class CiteStructureParser:
         cite_structure = CitableStructure(
             citeType=unit,
             xpath="",
+            xpath_match="",
             delim=delim or ""
         )
 
@@ -93,7 +95,9 @@ class CiteStructureParser:
             self.xpath_matcher[accumulated_units] = f"{match}[{use}='{{{accumulated_units}}}']"
         else:
             self.xpath_matcher[accumulated_units] = f"{match}[{use}={{{accumulated_units}}}]"
+
         cite_structure.xpath = f"{match}/{use}"
+        cite_structure.xpath_match = f"{match}[{use}]"
 
         child_regexes = []
         parsed_children_cite_structure = []
@@ -137,13 +141,13 @@ class CiteStructureParser:
             unit: Optional[CitableUnit] = None
     ) -> List[CitableUnit]:
         xpath_proc = _get_xpath_proc(processor, elem=root)
-        prefix = (unit.identifier+structure.delim) if unit else ""
+        prefix = (unit.ref + structure.delim) if unit else ""
         units = []
         xpath_prefix = "./" if unit else ""
         for value in xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}"):
             child = CitableUnit(
                 citeType=structure.citeType,
-                identifier=f"{prefix}{value.string_value}"
+                ref=f"{prefix}{value.string_value}"
             )
             if unit:
                 unit.children.append(child)
@@ -151,16 +155,39 @@ class CiteStructureParser:
                 units.append(child)
 
             if structure.children:
-                target = self.generate_xpath(child.identifier)
-                for child_structure in structure.children:
+                target = self.generate_xpath(child.ref)
+                if len(structure.children) == 1:
                     self.find_refs(
                         root=xpath_proc.evaluate_single(target),
                         processor=processor,
-                        structure=child_structure,
+                        structure=structure.children[0],
+                        unit=child
+                    )
+                else:
+                    self.find_refs_from_branches(
+                        root=xpath_proc.evaluate_single(target),
+                        processor=processor,
+                        structure=structure.children,
                         unit=child
                     )
         return units
 
+    def find_refs_from_branches(
+            self,
+            root: PyXdmNode,
+            processor: PySaxonProcessor,
+            structure: List[CitableStructure],
+            unit: Optional[CitableUnit] = None
+    ) -> List[CitableUnit]:
+        xpath_proc = _get_xpath_proc(processor, elem=root)
+        prefix = (unit.ref) if unit else ""  # ToDo: Reinject delim
+        units = []
+        xpath_prefix = "./" if unit else ""
+        nodes = []
+        for s in structure:
+            nodes.extend(list(xpath_proc.evaluate(f"{xpath_prefix}{s.xpath_match}")))
+
+        # And now how do I sort this ?
 
 if __name__ == "__main__":
     processor = PySaxonProcessor()
@@ -190,6 +217,7 @@ if __name__ == "__main__":
             <div>Text A</div>
             <div>Text B</div>
             <l>Text C</l>
+            <div>Text D</div>
         </div>
     </div>
     </body>
