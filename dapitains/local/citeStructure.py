@@ -141,6 +141,8 @@ class CiteStructureParser:
 
         match = {k:v for k, v in match.groupdict().items() if v}
         xpath = "/".join([self.xpath_matcher[key].format(**{key: value}) for key, value in match.items()])
+        # This is a VERY dirty trick in case we have // down the road
+        xpath = xpath.replace("///", "//")
         return xpath
 
     def _dispatch(

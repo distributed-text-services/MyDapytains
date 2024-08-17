@@ -31,7 +31,26 @@ def xpath_walk(xpath: List[str]) -> Tuple[str, List[str]]:
     return current, queue
 
 
-def xpath_walk_step(parent: PyXdmNode, xpath: str) -> Tuple[PyXdmNode, bool]:
+def is_traversing_xpath(parent: PyXdmNode, xpath: str) -> bool:
+    """ Check if an XPath is traversing more than one level
+
+    :param parent:
+    :param xpath:
+    :return:
+    """
+    xpath_proc = get_xpath_proc(parent)
+    if xpath.startswith(".//"):
+        # If the XPath starts with .//, we try to see if we have a direct child that matches
+        drct_xpath = xpath.replace(".//", "./", 1)
+        if xpath_proc.effective_boolean_value(f"head({xpath}) is head({drct_xpath})"):
+            return False
+        else:
+            return True
+    return False
+
+
+def xpath_walk_step(parent: PyXdmNode, xpath: str)\
+        -> Tuple[PyXdmNode, bool]:
     """ Perform an XPath on an element to find a child that is part of the XPath.
     If the child is a direct member of the path, returns a False boolean indicating to move
         onto the next element.
@@ -43,26 +62,25 @@ def xpath_walk_step(parent: PyXdmNode, xpath: str) -> Tuple[PyXdmNode, bool]:
     :return: (Result, Validity of the original XPath)
     """
     xpath_proc = get_xpath_proc(parent)
+    # We check first for loops, because that changes the xpath
     if xpath.startswith(".//"):
-        # If the XPath starts with .//, we try to see if we have a direct child that matches
-        if result := xpath_proc.evaluate_single(xpath.replace(".//", "./", 1)):
-            return result, False
-        # Otherwise, we check for any child element having such a child
-        else:
+        if is_traversing_xpath(parent, xpath):
             return xpath_proc.evaluate_single(f"./*[{xpath}]"), True
+        else:
+            return xpath_proc.evaluate_single(xpath), False
     else:
         return xpath_proc.evaluate_single(xpath), False
 
 
-def copy_node(node: PyXdmNode, children=False, parent: Optional[Element] = None):
+def copy_node(node: PyXdmNode, include_children=False, parent: Optional[Element] = None):
     """ Copy an XML Node
 
     :param node: Etree Node
-    :param children: Copy children nodes if set to True
+    :param include_children: Copy children nodes if set to True
     :param parent: Append copied node to parent if given
     :return: New Element
     """
-    if children:
+    if include_children:
         # We simply go from the element as a string to an element as XML.
         element = fromstring(node.to_string())
         if parent is not None:
@@ -126,107 +144,88 @@ def reconstruct_doc(
     :param following_siblings: Append following siblings of XPath 1/2 match to the tree
     :return: Newly incremented tree
     """
-    current_1, queue_1 = xpath_walk(start_xpath)
-    if end_xpath is None:  # In case we need what is following or preceding our node
-        result_1, loop = xpath_walk_step(root, current_1)
-        if loop is True:
-            queue_1 = start_xpath
+    current_start, queue_start = xpath_walk(start_xpath)
+    xproc = get_xpath_proc(root)
+    # There are too possibilities:
+    #  1. What we call loop is when the first element that match this XPath, such as "//body", then we will need
+    #     to loop over ./TEI, then ./text and finally we'll get out of the loop at body.
+    #     Basically, in a loop, the XPath does not change until we reach the first element
+    #     of the XPath (here ./body)
+    #  2. The second option is that we do not loop. Simple he ?
+    result_start, start_is_traversing = xpath_walk_step(root, current_start)
+    current_end, queue_end = None, None
+    if start_is_traversing is True:
+        queue_start = start_xpath
+        # If we loop and both xpath are the same,
+        #    then we have the same current and queue
+        if end_xpath == start_xpath:
+            current_end, queue_end = current_start, queue_start
 
-        central = None
-        has_no_queue = len(queue_1) == 0
-        # For each sibling, when we need them in the context of a range
-        if preceding_siblings or following_siblings:
-            for sibling in xmliter(root):
-                if sibling == result_1:
-                    central = True
-                    # We copy the node we looked for (Result_1)
-                    child = copy_node(result_1, children=has_no_queue, parent=new_tree)
-                    # if we don't have children
-                    # we loop over the passage child
-                    if not has_no_queue:
-                        reconstruct_doc(
-                            result_1,
-                            new_tree=child,
-                            start_xpath=queue_1,
-                            end_xpath=None,
-                            preceding_siblings=preceding_siblings,
-                            following_siblings=following_siblings
-                        )
-                    # If we were waiting for preceding_siblings, we break it off
-                    # As we don't need to go further
-                    if preceding_siblings:
-                        break
-                elif not central and preceding_siblings:
-                    copy_node(sibling, parent=new_tree, children=True)
-                elif central and following_siblings:
-                    copy_node(sibling, parent=new_tree, children=True)
+    # If we were not in any single edge case for end_xpath, run the xpath_walk
+    if current_end is None:
+        current_end, queue_end = xpath_walk(end_xpath)
+
+    # Here, we start by comparing both XPath, in case we have a single XPath
+    current_1_is_current_2 = start_xpath == end_xpath
+    # If they don't match, maybe an XPath comparison of both items will tell use more
+    if not current_1_is_current_2:
+        # If we don't, we do an XPath check
+        current_1_is_current_2 = xproc.effective_boolean_value(f"head({current_start}) is head({current_end})")
+        print("CUrs", current_start, current_end)
+    if current_1_is_current_2:
+        # We get the children if the XPath stops here
+        has_no_queue = len(queue_start) == 0
+        # We copy the node we found
+        copied_node = copy_node(result_start, include_children=has_no_queue, parent=new_tree)
+        # If that's the first element EVER, then we make this child the root node of our new tree
+        if new_tree is None:
+            new_tree = copied_node
+        # Given that both XPath returns the same node, we still need to check if end is looping
+        #   We optimize by avoiding this check when start and end are the same
+        if start_xpath != end_xpath and is_traversing_xpath(root, current_end):
+            queue_end = end_xpath
+        # If we have a child XPath, then continue the job
+        if not has_no_queue:
+            reconstruct_doc(root=result_start, new_tree=copied_node, start_xpath=queue_start, end_xpath=queue_end)
     else:
-        result_1, loop = xpath_walk_step(root, current_1)
-        if loop is True:
-            queue_1 = start_xpath
-            if end_xpath == start_xpath:
-                current_2, queue_2 = current_1, queue_1
-            else:
-                current_2, queue_2 = xpath_walk(end_xpath)
+        # If we still don't have the same children as a result of start and end,
+        #   We make sure to retrieve the element at the end of 2
+        result_end, end_is_traversing = xpath_walk_step(root, current_end)
+        # If end_xpath results in a loop, then loop end_xpath
+        if end_is_traversing:
+            queue_end = end_xpath
+
+        # We start by copying start.
+        copy_node(result_start, include_children=len(queue_start) == 0, parent=new_tree)
+        # If we have a queue, we run the queue
+        if queue_start:
+            reconstruct_doc(result_start, start_xpath=queue_start, end_xpath=queue_start)
+
+        # When we don't have similar node, we loop on siblings until we get to the expected element
+        #  For this reason, we need to change matching xpath (ie. ./div[position()=1]) into compatible
+        #  suffixes with preceding-sibling or following-sibling.
+        # We do that for start and end
+        if start_is_traversing and current_start.startswith(".//"):
+            sib_current_start = f"*[{current_start}]"
         else:
-            current_2, queue_2 = xpath_walk(end_xpath)
-
-        if current_1 != current_2:
-            result_2, loop = xpath_walk_step(root, current_2)
-            if loop is True:
-                queue_2 = end_xpath
+            sib_current_start = current_start[2:]
+        if end_is_traversing and current_end.startswith(".//"):
+            sib_current_end = f"*[{current_end}]"
         else:
-            result_2 = result_1
+            sib_current_end = current_end[2:]
 
-        if result_1 is result_2:
-            # We get the children if the XPath stops here
-            has_no_queue = len(queue_1) == 0
+        # We look for siblings between start and end matches
+        xpath = get_xpath_proc(root)
 
-            # We copy the node we found
-            child = copy_node(result_1, children=has_no_queue, parent=new_tree)
+        for sibling in xpath.evaluate(
+                f"./*[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]"):
+            copy_node(sibling, include_children=True, parent=new_tree)
 
-            if new_tree is None:
-                new_tree = child
-            if not has_no_queue:
-                reconstruct_doc(
-                    root=result_1,
-                    new_tree=child,
-                    start_xpath=queue_1,
-                    end_xpath=queue_2
-                )
-        else:
-            start = False
-            # For each sibling
-            for sibling in xmliter(root):
-                # If we have found start
-                # We copy the node because we are between start and end
-                if start:
-                    # If we are at the end
-                    # We break the copy
-                    if sibling == result_2:
-                        break
-                    else:
-                        copy_node(sibling, parent=new_tree, children=True)
-                # If this is start
-                # Then we copy it and initiate star
-                elif sibling == result_1:
-                    start = True
-                    has_no_queue_1 = len(queue_1) == 0
-                    node = copy_node(sibling, children=has_no_queue_1, parent=new_tree)
-                    if not has_no_queue_1:
-                        reconstruct_doc(
-                            root=sibling,
-                            new_tree=node,
-                            start_xpath=queue_1,
-                            end_xpath=None,
-                            following_siblings=True
-                        )
-
-            continue_loop = len(queue_2) == 0
-            node = copy_node(result_2, children=continue_loop, parent=new_tree)
-            if not continue_loop:
-                reconstruct_doc(
-                    root=result_2, new_tree=node, start_xpath=queue_2, end_xpath=None, preceding_siblings=True)
+        # Here we reached the end, logically.
+        node = copy_node(node=result_end, include_children=len(queue_end) == 0, parent=new_tree)
+        if queue_end:
+            reconstruct_doc(
+                root=result_end, new_tree=node, start_xpath=queue_end, end_xpath=queue_end)
 
     return new_tree
 
@@ -239,27 +238,30 @@ class Document:
             self.xpath_processor.evaluate_single("/TEI/teiHeader/refsDecl/citeStructure")
         )
 
-    def get_passage(self, ref: Optional[str], start: Optional[str] = None, end: Optional[str] = None):
+    def get_passage(self, ref_or_start: Optional[str], end: Optional[str] = None):
         """
 
-        :param ref:
+        :param ref_or_start:
         :param start:
         :param end:
         :return:
         """
-        if ref:
-            start, end = ref, None
-        elif not start or not end:
+        if ref_or_start and not end:
+            start, end = ref_or_start, None
+        elif ref_or_start and end:
+            start, end = ref_or_start, end
+        else:
             raise ValueError("Start/End or Ref are necessary to get a passage")
-
         start = self.citeStructure.generate_xpath(start)
+
         def xpath_split(string: str) -> List[str]:
             return [x for x in re.split(r"/(/?[^/]+)", string) if x]
 
         start = normalize_xpath(xpath_split(start))
         if end:
             end = self.citeStructure.generate_xpath(end)
-            end = normalize_xpath(end.split("/"))
+            end = normalize_xpath(xpath_split(end))
+            print(end)
         else:
             end = start
 
@@ -274,9 +276,30 @@ class Document:
 
 if __name__ == "__main__":
     doc = Document("/home/tclerice/dev/MyDapytains/tests/base_tei.xml")
-
     assert tostring(
         doc.get_passage("Luke 1:1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype"><text><body>'
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype"'
+          ' py:pytype="TREE"><text><body>'
           '<div n="Luke"><div><div>Text</div></div></div></body></text></TEI>')
+    print("test 1 is ok")
 
+    assert tostring(
+        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype"'
+          ' py:pytype="TREE"><text><body><div n="Luke"><div><div>Text</div><div>Text 2</div><l>Text 3</l></div>'
+          '</div></body></text></TEI>')
+    print("test 2 is ok")
+
+    doc = Document("/home/tclerice/dev/MyDapytains/tests/tei_with_two_traversing.xml")
+    print(tostring(
+        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
+    ))
+    assert tostring(
+        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype" '
+          'py:pytype="TREE"><text><body><div n="Luke"><div><div>Text</div><div>Text 2</div><lg><l>Text 3</l>'
+          '</lg></div></div></body></text></TEI>'), "woohooo"
+
+    print(tostring(
+        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#3"), encoding=str
+    ))
