@@ -1,9 +1,11 @@
 import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from saxonche import PyXdmNode, PySaxonProcessor, PyXPathProcessor
+from saxonche import PyXdmNode, PyXPathProcessor
 from collections import namedtuple
 from functools import cmp_to_key
+from dapitains.constants import PROCESSOR, get_xpath_proc
+
 
 @dataclass
 class CitableStructure:
@@ -36,15 +38,9 @@ class CitableUnit:
 _simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
 
 
-def _get_xpath_proc(processor: PySaxonProcessor, elem: PyXdmNode) -> PyXPathProcessor:
-    xpath = processor.new_xpath_processor()
-    xpath.declare_namespace("", "http://www.tei-c.org/ns/1.0")
-    xpath.set_context(xdm_item=elem)
-    return xpath
 
-
-def get_children_cite_structures(elem: PyXdmNode, processor: PySaxonProcessor) -> List[PyXdmNode]:
-    xpath = _get_xpath_proc(processor, elem=elem).evaluate("./citeStructure")
+def get_children_cite_structures(elem: PyXdmNode) -> List[PyXdmNode]:
+    xpath = get_xpath_proc(elem=elem).evaluate("./citeStructure")
     if xpath is not None:
         return list(iter(xpath))
     return []
@@ -56,16 +52,15 @@ class CiteStructureParser:
     ToDo: Add the ability to use CiteData. This will mean moving from len(element) to len(element.xpath("./citeStructure"))
     ToDo: Add the ability to use citationTree labels
     """
-    def __init__(self, root: PyXdmNode, processor: PySaxonProcessor):
+    def __init__(self, root: PyXdmNode):
         self.root = root
         self.xpath_matcher: Dict[str, str] = {}
-        self.regex_pattern, cite_structure = self.build_regex_and_xpath(self.root, processor=processor)
+        self.regex_pattern, cite_structure = self.build_regex_and_xpath(self.root)
         self.units: CitableStructure = cite_structure
 
     def build_regex_and_xpath(
             self,
             element,
-            processor: PySaxonProcessor,
             accumulated_units=""
     ):
         """
@@ -88,7 +83,7 @@ class CiteStructureParser:
             delim=delim or ""
         )
 
-        children_cite_struct = get_children_cite_structures(element, processor=processor)
+        children_cite_struct = get_children_cite_structures(element)
 
         # Accumulate unit names for unique regex group names
         accumulated_units = f"{accumulated_units}__{unit}" if accumulated_units else unit
@@ -121,8 +116,7 @@ class CiteStructureParser:
         for child in children_cite_struct:
             child_regex, child_cite_structure = self.build_regex_and_xpath(
                 child,
-                accumulated_units=accumulated_units,
-                processor=processor
+                accumulated_units=accumulated_units
             )
             child_regexes.append(child_regex)
             parsed_children_cite_structure.append(child_cite_structure)
@@ -147,27 +141,26 @@ class CiteStructureParser:
 
         match = {k:v for k, v in match.groupdict().items() if v}
         xpath = "/".join([self.xpath_matcher[key].format(**{key: value}) for key, value in match.items()])
+        # This is a VERY dirty trick in case we have // down the road
+        xpath = xpath.replace("///", "//")
         return xpath
 
     def _dispatch(
             self,
             child_xpath: str,
             structure: CitableStructure,
-            processor: PySaxonProcessor,
             xpath_processor: PyXPathProcessor,
             unit: CitableUnit):
         # target = self.generate_xpath(child.ref)
         if len(structure.children) == 1:
             self.find_refs(
                 root=xpath_processor.evaluate_single(child_xpath),
-                processor=processor,
                 structure=structure.children[0],
                 unit=unit
             )
         else:
             self.find_refs_from_branches(
                 root=xpath_processor.evaluate_single(child_xpath),
-                processor=processor,
                 structure=structure.children,
                 unit=unit
             )
@@ -175,11 +168,10 @@ class CiteStructureParser:
     def find_refs(
             self,
             root: PyXdmNode,
-            processor: PySaxonProcessor,
             structure: CitableStructure = None,
             unit: Optional[CitableUnit] = None
     ) -> List[CitableUnit]:
-        xpath_proc = _get_xpath_proc(processor, elem=root)
+        xpath_proc = get_xpath_proc(elem=root)
         prefix = (unit.ref + structure.delim) if unit else ""
         units = []
         xpath_prefix = "./" if unit else ""
@@ -198,7 +190,6 @@ class CiteStructureParser:
                 self._dispatch(
                     child_xpath=self.generate_xpath(child.ref),
                     structure=structure,
-                    processor=processor,
                     xpath_processor=xpath_proc,
                     unit=child
                 )
@@ -207,11 +198,10 @@ class CiteStructureParser:
     def find_refs_from_branches(
             self,
             root: PyXdmNode,
-            processor: PySaxonProcessor,
             structure: List[CitableStructure],
             unit: Optional[CitableUnit] = None
     ) -> List[CitableUnit]:
-        xpath_proc = _get_xpath_proc(processor, elem=root)
+        xpath_proc = get_xpath_proc(elem=root)
         prefix = (unit.ref) if unit else ""  # ToDo: Reinject delim
         units = []
         xpath_prefix = "./" if unit else ""
@@ -256,7 +246,6 @@ class CiteStructureParser:
                 self._dispatch(
                     child_xpath=self.generate_xpath(child_unit.ref),
                     structure=elem.struct,
-                    processor=processor,
                     xpath_processor=xpath_proc,
                     unit=child_unit
                 )
@@ -264,7 +253,6 @@ class CiteStructureParser:
 
 
 if __name__ == "__main__":
-    processor = PySaxonProcessor()
     # Example usage:
     xml_string = """<TEI xmlns="http://www.tei-c.org/ns/1.0">
     <teiHeader>
@@ -298,12 +286,12 @@ if __name__ == "__main__":
     </text>
     </TEI>
     """
-    TEI = processor.parse_xml(xml_text=xml_string)
-    xpath = _get_xpath_proc(processor, elem=TEI)
+    TEI = PROCESSOR.parse_xml(xml_text=xml_string)
+    xpath = get_xpath_proc(elem=TEI)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl/citeStructure")
-    parser = CiteStructureParser(citeStructure, processor)
+    parser = CiteStructureParser(citeStructure)
 
-    print([root.to_dts() for root in parser.find_refs(root=TEI, structure=parser.units, processor=processor)])
+    print([root.to_dts() for root in parser.find_refs(root=TEI, structure=parser.units)])
 
     # Generate XPath for "Luke 1:2"
     assert parser.generate_xpath("Luke 1:2") == "//body/div[@n='Luke']/div[position()=1]/div[position()=2]"
