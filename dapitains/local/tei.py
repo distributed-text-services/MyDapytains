@@ -171,12 +171,10 @@ def reconstruct_doc(
     if not current_1_is_current_2:
         # If we don't, we do an XPath check
         current_1_is_current_2 = xproc.effective_boolean_value(f"head({current_start}) is head({current_end})")
-        print("CUrs", current_start, current_end)
     if current_1_is_current_2:
         # We get the children if the XPath stops here
-        has_no_queue = len(queue_start) == 0
         # We copy the node we found
-        copied_node = copy_node(result_start, include_children=has_no_queue, parent=new_tree)
+        copied_node = copy_node(result_start, include_children=len(queue_start) == 0, parent=new_tree)
         # If that's the first element EVER, then we make this child the root node of our new tree
         if new_tree is None:
             new_tree = copied_node
@@ -185,7 +183,7 @@ def reconstruct_doc(
         if start_xpath != end_xpath and is_traversing_xpath(root, current_end):
             queue_end = end_xpath
         # If we have a child XPath, then continue the job
-        if not has_no_queue:
+        if len(queue_start):
             reconstruct_doc(root=result_start, new_tree=copied_node, start_xpath=queue_start, end_xpath=queue_end)
     else:
         # If we still don't have the same children as a result of start and end,
@@ -207,10 +205,14 @@ def reconstruct_doc(
         # We do that for start and end
         if start_is_traversing and current_start.startswith(".//"):
             sib_current_start = f"*[{current_start}]"
+        elif not start_is_traversing and current_start.startswith(".//"):
+            sib_current_start = current_start[3:]
         else:
             sib_current_start = current_start[2:]
         if end_is_traversing and current_end.startswith(".//"):
             sib_current_end = f"*[{current_end}]"
+        elif not end_is_traversing and current_end.startswith(".//"):
+            sib_current_end = current_end[3:]
         else:
             sib_current_end = current_end[2:]
 
@@ -261,7 +263,6 @@ class Document:
         if end:
             end = self.citeStructure.generate_xpath(end)
             end = normalize_xpath(xpath_split(end))
-            print(end)
         else:
             end = start
 
@@ -272,34 +273,3 @@ class Document:
             end_xpath=end
         )
         return root
-
-
-if __name__ == "__main__":
-    doc = Document("/home/tclerice/dev/MyDapytains/tests/base_tei.xml")
-    assert tostring(
-        doc.get_passage("Luke 1:1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype"'
-          ' py:pytype="TREE"><text><body>'
-          '<div n="Luke"><div><div>Text</div></div></div></body></text></TEI>')
-    print("test 1 is ok")
-
-    assert tostring(
-        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype"'
-          ' py:pytype="TREE"><text><body><div n="Luke"><div><div>Text</div><div>Text 2</div><l>Text 3</l></div>'
-          '</div></body></text></TEI>')
-    print("test 2 is ok")
-
-    doc = Document("/home/tclerice/dev/MyDapytains/tests/tei_with_two_traversing.xml")
-    print(tostring(
-        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
-    ))
-    assert tostring(
-        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0" xmlns:py="http://codespeak.net/lxml/objectify/pytype" '
-          'py:pytype="TREE"><text><body><div n="Luke"><div><div>Text</div><div>Text 2</div><lg><l>Text 3</l>'
-          '</lg></div></div></body></text></TEI>'), "woohooo"
-
-    print(tostring(
-        doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#3"), encoding=str
-    ))
