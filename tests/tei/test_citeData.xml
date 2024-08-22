@@ -2,8 +2,8 @@
     <teiHeader>
         <refsDecl n="nums" default="true">
             <citeStructure unit="book" match="//body/div" use="@n">
-                    <citeData use="./head" property="http://purl.org/dc/terms/title"/>
-                    <citeData use=".//persName[1]" property="http://purl.org/dc/terms/creator"/>
+                    <citeData use="./head/text()" property="http://purl.org/dc/terms/title"/>
+                    <citeData use=".//persName[1]/text()" property="http://purl.org/dc/terms/creator"/>
             </citeStructure>
         </refsDecl>
     </teiHeader>

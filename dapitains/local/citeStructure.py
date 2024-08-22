@@ -34,6 +34,11 @@ class CitableStructure:
     children: List["CitableStructure"] = field(default_factory=list)
     metadata: List["CiteData"] = field(default_factory=list)
 
+    def get(self, ref: str):
+        if self.use != "position()":
+            return f"{self.match}[{self.use}='{ref}']"
+        return f"{self.match}[{self.use}={ref}]"
+
 
 @dataclass
 class CitableUnit:
@@ -55,9 +60,9 @@ class CitableUnit:
                 for member in self.children
             ]
         if self.dublinCore:
-            out["dublinCore"] = self.dublinCore
+            out["dublinCore"] = dict(self.dublinCore)
         if self.extension:
-            out["extension"] = self.dublinCore
+            out["extension"] = dict(self.extension)
         return out
 
 
@@ -216,6 +221,14 @@ class CiteStructureParser:
                 citeType=structure.citeType,
                 ref=f"{prefix}{value.string_value}"
             )
+
+            if structure.metadata:
+                local_xproc = get_xpath_proc(xpath_proc.evaluate_single(self.generate_xpath(child.ref)))
+                for cite_data in structure.metadata:
+                    if metadata_found := local_xproc.evaluate(cite_data.xpath):
+                        for value in metadata_found:
+                            child.__getattribute__(cite_data.key)[cite_data.name].append(value.get_string_value())
+
             if unit:
                 unit.children.append(child)
             else:

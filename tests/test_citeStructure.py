@@ -1,6 +1,11 @@
 from dapitains.local.citeStructure import CiteStructureParser
 from dapitains.constants import PROCESSOR, get_xpath_proc
+import os.path
 import pytest
+
+local_dir = os.path.join(os.path.dirname(__file__), "tei")
+
+
 
 
 def test_parsing():
@@ -70,3 +75,26 @@ def test_parsing():
             ]}
         ]}
     ]
+
+def test_cite_data():
+    TEI = PROCESSOR.parse_xml(xml_file_name=f"{local_dir}/test_citeData.xml")
+    xpath = get_xpath_proc(elem=TEI)
+    citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
+    parser = CiteStructureParser(citeStructure)
+    refs = parser.find_refs(root=TEI, structure=parser.units)
+    refs = [ref.to_dts() for ref in refs]
+    assert refs == [
+        {'citeType': 'book', 'ref': '1', 'dublinCore': {
+            'http://purl.org/dc/terms/title': ['Introduction', 'Introduction'],
+            'http://purl.org/dc/terms/creator': ['John Doe']}},
+        {'citeType': 'book', 'ref': '2', 'dublinCore': {'http://purl.org/dc/terms/title': ["Background", 'Contexte']}},
+        {'citeType': 'book', 'ref': '3', 'dublinCore': {
+            'http://purl.org/dc/terms/title': ['Methodology', 'Méthodologie'],
+            'http://purl.org/dc/terms/creator': ['Albert Einstein']}},
+        {'citeType': 'book', 'ref': '4', 'dublinCore': {
+            'http://purl.org/dc/terms/title': ['Results', 'Résultats'],
+            'http://purl.org/dc/terms/creator': ['Isaac Newton']}},
+        {'citeType': 'book', 'ref': '5', 'dublinCore': {
+            'http://purl.org/dc/terms/title': ['Conclusion', 'Conclusion'],
+            'http://purl.org/dc/terms/creator': ['Marie Curie']
+        }}]
