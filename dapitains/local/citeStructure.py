@@ -2,9 +2,26 @@ import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from saxonche import PyXdmNode, PyXPathProcessor
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from functools import cmp_to_key
 from dapitains.constants import PROCESSOR, get_xpath_proc
+
+
+@dataclass
+class CiteData:
+    xpath: str
+    name: str
+    _key: str = None
+
+    @property
+    def key(self) -> str:
+        if self._key:
+            return self._key
+        if self.name.startswith("http://purl.org/dc/terms/"):
+            self._key = "dublinCore"
+        else:
+            self._key = "extension"
+        return self._key
 
 
 @dataclass
@@ -15,6 +32,7 @@ class CitableStructure:
     use: str
     delim: str = ""
     children: List["CitableStructure"] = field(default_factory=list)
+    metadata: List["CiteData"] = field(default_factory=list)
 
 
 @dataclass
@@ -23,16 +41,24 @@ class CitableUnit:
     ref: str
     children: List["CitableUnit"] = field(default_factory=list)
     node: Optional[PyXdmNode] = None
+    dublinCore: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
+    extension: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
 
     def to_dts(self):
-        return {
+        out = {
             "citeType": self.citeType,
-            "ref": self.ref,
-            "members": [
+            "ref": self.ref
+        }
+        if self.children:
+            out["members"] = [
                 member.to_dts()
                 for member in self.children
             ]
-        }
+        if self.dublinCore:
+            out["dublinCore"] = self.dublinCore
+        if self.extension:
+            out["extension"] = self.dublinCore
+        return out
 
 
 _simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
@@ -85,6 +111,14 @@ class CiteStructureParser:
         )
 
         children_cite_struct = get_children_cite_structures(element)
+
+        citeDatas = get_xpath_proc(element).evaluate("./citeData")
+        if citeDatas:
+            for element in citeDatas:
+                cite_structure.metadata.append(CiteData(
+                    xpath=element.get_attribute_value("use"),
+                    name=element.get_attribute_value("property")
+                ))
 
         # Accumulate unit names for unique regex group names
         accumulated_units = f"{accumulated_units}__{unit}" if accumulated_units else unit

@@ -56,17 +56,17 @@ def test_parsing():
     assert [root.to_dts() for root in parser.find_refs(root=TEI, structure=parser.units)] == [
         {'citeType': 'book', 'ref': 'Luke', 'members': [
             {'citeType': 'chapter', 'ref': 'Luke 1', 'members': [
-                {'citeType': 'verse', 'ref': 'Luke 1:1', 'members': []},
-                {'citeType': 'verse', 'ref': 'Luke 1:2', 'members': []},
-                {'citeType': 'bloup', 'ref': 'Luke 1#1', 'members': []}
+                {'citeType': 'verse', 'ref': 'Luke 1:1'},
+                {'citeType': 'verse', 'ref': 'Luke 1:2'},
+                {'citeType': 'bloup', 'ref': 'Luke 1#1'}
                 ]}
         ]},
         {'citeType': 'book', 'ref': 'Mark', 'members': [
             {'citeType': 'chapter', 'ref': 'Mark 1', 'members': [
-                {'citeType': 'verse', 'ref': 'Mark 1:1', 'members': []},
-                {'citeType': 'verse', 'ref': 'Mark 1:2', 'members': []},
-                {'citeType': 'bloup', 'ref': 'Mark 1#1', 'members': []},
-                {'citeType': 'verse', 'ref': 'Mark 1:3', 'members': []}
+                {'citeType': 'verse', 'ref': 'Mark 1:1'},
+                {'citeType': 'verse', 'ref': 'Mark 1:2'},
+                {'citeType': 'bloup', 'ref': 'Mark 1#1'},
+                {'citeType': 'verse', 'ref': 'Mark 1:3'}
             ]}
         ]}
     ]
