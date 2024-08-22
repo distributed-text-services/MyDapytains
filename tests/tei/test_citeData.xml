@@ -1,0 +1,39 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <refsDecl n="nums" default="true">
+            <citeStructure unit="book" match="//body/div" use="@n">
+                    <citeData use="./head" property="http://purl.org/dc/terms/title"/>
+                    <citeData use=".//persName[1]" property="http://purl.org/dc/terms/creator"/>
+            </citeStructure>
+        </refsDecl>
+    </teiHeader>
+    <text>
+        <body>
+            <div xml:id="div-001" n="1">
+                <head xml:lang="en">Introduction</head>
+                <head xml:lang="fr">Introduction</head>
+                <p>Lorem ipsum dolor sit amet, <persName>John Doe</persName>.</p>
+            </div>
+            <div xml:id="div-002" n="2">
+                <head xml:lang="en">Background</head>
+                <head xml:lang="fr">Contexte</head>
+                <p>Consectetur adipiscing elit.</p>
+            </div>
+            <div xml:id="div-003" n="3">
+                <head xml:lang="en">Methodology</head>
+                <head xml:lang="fr">Méthodologie</head>
+                <p>Sed do eiusmod tempor incididunt, <persName>Albert Einstein</persName>.</p>
+            </div>
+            <div xml:id="div-004" n="4">
+                <head xml:lang="en">Results</head>
+                <head xml:lang="fr">Résultats</head>
+                <p>Ut labore et dolore magna aliqua, <persName>Isaac Newton</persName>.</p>
+            </div>
+            <div xml:id="div-005" n="5">
+                <head xml:lang="en">Conclusion</head>
+                <head xml:lang="fr">Conclusion</head>
+                <p>Ut enim ad minim veniam, <persName>Marie Curie</persName>.</p>
+            </div>
+        </body>
+    </text>
+</TEI>
