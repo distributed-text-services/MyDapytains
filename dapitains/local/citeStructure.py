@@ -38,7 +38,6 @@ class CitableUnit:
 _simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
 
 
-
 def get_children_cite_structures(elem: PyXdmNode) -> List[PyXdmNode]:
     xpath = get_xpath_proc(elem=elem).evaluate("./citeStructure")
     if xpath is not None:
@@ -55,7 +54,9 @@ class CiteStructureParser:
     def __init__(self, root: PyXdmNode):
         self.root = root
         self.xpath_matcher: Dict[str, str] = {}
-        self.regex_pattern, cite_structure = self.build_regex_and_xpath(self.root)
+        self.regex_pattern, cite_structure = self.build_regex_and_xpath(
+            get_xpath_proc(self.root).evaluate_single("./citeStructure[1]")
+        )
         self.units: CitableStructure = cite_structure
 
     def build_regex_and_xpath(

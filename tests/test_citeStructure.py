@@ -38,7 +38,7 @@ def test_parsing():
     """
     TEI = PROCESSOR.parse_xml(xml_text=xml_string)
     xpath = get_xpath_proc(elem=TEI)
-    citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl/citeStructure")
+    citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
     parser = CiteStructureParser(citeStructure)
 
     # Generate XPath for "Luke 1:2"

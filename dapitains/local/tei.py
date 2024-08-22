@@ -1,10 +1,11 @@
 from dapitains.local.citeStructure import CiteStructureParser
 from dapitains.constants import PROCESSOR, get_xpath_proc
-from typing import Optional, List, Tuple
-from lxml.etree import tostring, fromstring
-from lxml.objectify import Element, SubElement, ObjectifiedElement
+from typing import Optional, List, Tuple, Dict
+from lxml.etree import fromstring
+from lxml.objectify import Element, SubElement
 from saxonche import PyXdmNode, PyXPathProcessor
 import re
+from dapitains.errors import UnknownTreeName
 
 
 _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
@@ -12,8 +13,6 @@ _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
 
 def xpath_walk(xpath: List[str]) -> Tuple[str, List[str]]:
     """ Format at XPath for perform XPath
-
-    ToDo: Not finished reprocessed
 
     :param xpath: XPath element lists
     :return: Tuple where the first element is an XPath representing the next node to retrieve and the second the list \
@@ -49,8 +48,7 @@ def is_traversing_xpath(parent: PyXdmNode, xpath: str) -> bool:
     return False
 
 
-def xpath_walk_step(parent: PyXdmNode, xpath: str)\
-        -> Tuple[PyXdmNode, bool]:
+def xpath_walk_step(parent: PyXdmNode, xpath: str) -> Tuple[PyXdmNode, bool]:
     """ Perform an XPath on an element to find a child that is part of the XPath.
     If the child is a direct member of the path, returns a False boolean indicating to move
         onto the next element.
@@ -128,10 +126,8 @@ def reconstruct_doc(
     root: PyXdmNode,
     start_xpath: List[str],
     new_tree: Optional[Element] = None,
-    end_xpath: Optional[List[str]] = None,
-    preceding_siblings: bool = False,
-    following_siblings: bool = False
-):
+    end_xpath: Optional[List[str]] = None
+) -> Element:
     """ Loop over passages to construct and increment new tree given a parent and XPaths
 
     :param root: Parent on which to perform xpath
@@ -140,8 +136,6 @@ def reconstruct_doc(
     :type start_xpath: [str]
     :param end_xpath: List of xpath elements
     :type end_xpath: [str]
-    :param preceding_siblings: Append preceding siblings of XPath 1/2 match to the tree
-    :param following_siblings: Append following siblings of XPath 1/2 match to the tree
     :return: Newly incremented tree
     """
     current_start, queue_start = xpath_walk(start_xpath)
@@ -236,32 +230,42 @@ class Document:
     def __init__(self, file_path: str):
         self.xml = PROCESSOR.parse_xml(xml_file_name=file_path)
         self.xpath_processor = get_xpath_proc(elem=self.xml)
-        self.citeStructure = CiteStructureParser(
-            self.xpath_processor.evaluate_single("/TEI/teiHeader/refsDecl/citeStructure")
-        )
+        self.citeStructure: Dict[Optional[str], CiteStructureParser] = {}
+        for refsDecl in self.xpath_processor.evaluate("/TEI/teiHeader/refsDecl[./citeStructure]"):
+            struct = CiteStructureParser(refsDecl)
 
-    def get_passage(self, ref_or_start: Optional[str], end: Optional[str] = None):
-        """
+            self.citeStructure[refsDecl.get_attribute_value("n")] = struct
 
-        :param ref_or_start:
-        :param start:
-        :param end:
-        :return:
+            if refsDecl.get_attribute_value("default") == "true":
+                self.citeStructure[None] = struct
+
+    def get_passage(self, ref_or_start: Optional[str], end: Optional[str] = None, tree: Optional[str] = None) -> Element:
+        """ Retrieve a given passage from the document
+
+        :param ref_or_start: First element of a range or single ref
+        :param end: End of a range
+        :param tree: Name of a specific tree
         """
         if ref_or_start and not end:
             start, end = ref_or_start, None
         elif ref_or_start and end:
             start, end = ref_or_start, end
+        elif ref_or_start is None and end is end:
+            return fromstring(self.xml.to_string())
         else:
             raise ValueError("Start/End or Ref are necessary to get a passage")
-        start = self.citeStructure.generate_xpath(start)
+
+        try:
+            start = self.citeStructure[tree].generate_xpath(start)
+        except KeyError:
+            raise UnknownTreeName(tree)
 
         def xpath_split(string: str) -> List[str]:
             return [x for x in re.split(r"/(/?[^/]+)", string) if x]
 
         start = normalize_xpath(xpath_split(start))
         if end:
-            end = self.citeStructure.generate_xpath(end)
+            end = self.citeStructure[tree].generate_xpath(end)
             end = normalize_xpath(xpath_split(end))
         else:
             end = start
