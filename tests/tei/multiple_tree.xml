@@ -1,0 +1,29 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <refsDecl n="nums" default="true">
+            <citeStructure unit="book" match="//body/div" use="@n"/>
+        </refsDecl>
+        <refsDecl n="alpha">
+            <citeStructure unit="book" match="//body/div" use="@xml:id"/>
+        </refsDecl>
+    </teiHeader>
+    <text>
+        <body>
+            <div xml:id="div-a1" n="I">
+                <p>Lorem ipsum dolor sit amet.</p>
+            </div>
+            <div xml:id="div-002" n="1">
+                <p>Consectetur adipiscing elit.</p>
+            </div>
+            <div xml:id="div-xyz" n="A">
+                <p>Sed do eiusmod tempor incididunt.</p>
+            </div>
+            <div xml:id="div-004" n="4">
+                <p>Ut labore et dolore magna aliqua.</p>
+            </div>
+            <div xml:id="div-v5" n="V">
+                <p>Ut enim ad minim veniam.</p>
+            </div>
+        </body>
+    </text>
+</TEI>

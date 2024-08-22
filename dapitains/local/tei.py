@@ -3,6 +3,7 @@ from dapitains.constants import PROCESSOR, get_xpath_proc
 from typing import Optional, List, Tuple, Dict
 from lxml.etree import fromstring
 from lxml.objectify import Element, SubElement
+from lxml import objectify
 from saxonche import PyXdmNode, PyXPathProcessor
 import re
 from dapitains.errors import UnknownTreeName
@@ -276,4 +277,5 @@ class Document:
             start_xpath=start,
             end_xpath=end
         )
+        objectify.deannotate(root, cleanup_namespaces=True)
         return root
