@@ -98,3 +98,35 @@ def test_cite_data():
             'http://purl.org/dc/terms/title': ['Conclusion', 'Conclusion'],
             'http://purl.org/dc/terms/creator': ['Marie Curie']
         }}]
+
+
+def test_advanced_cite_data():
+    TEI = PROCESSOR.parse_xml(xml_file_name=f"{local_dir}/test_citeData_two_levels.xml")
+    xpath = get_xpath_proc(elem=TEI)
+    citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
+    parser = CiteStructureParser(citeStructure)
+    refs = parser.find_refs(root=TEI, structure=parser.units)
+    refs = [ref.to_dts() for ref in refs]
+    assert refs == [
+        {'citeType': 'part', 'ref': 'part-1', 'members': [
+            {'citeType': 'book', 'ref': 'part-1.1', 'dublinCore': {
+                'http://purl.org/dc/terms/title': ['Introduction', 'Introduction'],
+                'http://purl.org/dc/terms/creator': ['John Doe']}},
+            {'citeType': 'book', 'ref': 'part-1.2', 'dublinCore': {
+                'http://purl.org/dc/terms/title': ["Background", 'Contexte']
+            }}
+        ], 'extension': {"http://foo.bar/part": ["1"]}},
+        {'citeType': 'part', 'ref': 'part-2', 'members': [
+            {'citeType': 'book', 'ref': 'part-2.3', 'dublinCore': {
+                'http://purl.org/dc/terms/title': ['Methodology', 'Méthodologie'],
+                'http://purl.org/dc/terms/creator': ['Albert Einstein']}},
+            {'citeType': 'book', 'ref': 'part-2.4', 'dublinCore': {
+                'http://purl.org/dc/terms/title': ['Results', 'Résultats'],
+                'http://purl.org/dc/terms/creator': ['Isaac Newton']}}
+        ], 'extension': {"http://foo.bar/part": ["2"]}},
+        {'citeType': 'part', 'ref': 'part-3', 'members': [
+            {'citeType': 'book', 'ref': 'part-3.5', 'dublinCore': {
+                'http://purl.org/dc/terms/title': ['Conclusion', 'Conclusion'],
+                'http://purl.org/dc/terms/creator': ['Marie Curie']
+            }}
+        ], 'extension': {"http://foo.bar/part": ["3"]}}]

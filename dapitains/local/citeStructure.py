@@ -225,8 +225,10 @@ class CiteStructureParser:
             if structure.metadata:
                 local_xproc = get_xpath_proc(xpath_proc.evaluate_single(self.generate_xpath(child.ref)))
                 for cite_data in structure.metadata:
+                    print(cite_data)
                     if metadata_found := local_xproc.evaluate(cite_data.xpath):
                         for value in metadata_found:
+                            print(cite_data.key)
                             child.__getattribute__(cite_data.key)[cite_data.name].append(value.get_string_value())
 
             if unit:
