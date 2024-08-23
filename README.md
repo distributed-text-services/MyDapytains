@@ -27,6 +27,9 @@ This library will:
 
 We are currently figuring out the Resource level metadata.
 
+See one of our test files to check out the minimal requirements: we have one 
+[with citeData](./tests/tei/test_citeData_two_levels.xml) and one [with multiple trees](./tests/tei/multiple_tree.xml)
+
 ### Collection and Resource level guidelines
 
 Collection and Resource level guidelines can be provided through file named dts-metadata.xml in each subfolder of a 
