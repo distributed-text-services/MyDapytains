@@ -1,11 +1,18 @@
 import os.path
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
+from dataclasses import dataclass, field
 import lxml.etree as ET
 from dapitains.local.collections import DublinCore, Extension, Collection, CitableUnit
 
 
 _re_tag = re.compile(r"[{}]")
+
+
+@dataclass
+class Catalog:
+    relationships: List[Tuple[str, str]] = field(default_factory=list)
+    objects: Dict[str, Collection] = field(default_factory=dict)
 
 
 def parse_metadata(xml: ET.Element):
@@ -43,23 +50,25 @@ def parse_metadata(xml: ET.Element):
     return obj
 
 
-def parse_collection(xml: ET.Element, basedir: str, tree: Dict[str, Collection]) -> Collection:
+def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection:
     obj = parse_metadata(xml)
     obj = Collection(**obj, resource=xml.tag == "resource")
-    tree["objects"][obj.identifier] = obj
+    tree.objects[obj.identifier] = obj
+    if xml.attrib.get("filepath"):
+        obj.filepath = os.path.join(basedir, xml.attrib["filepath"])
     for member in xml.xpath("./members/*"):
         if member.xpath("./title"):
             child = parse_collection(member, basedir, tree)
-            tree["relationships"].append((obj.identifier, child.identifier))
+            tree.relationships.append((obj.identifier, child.identifier))
         else:
             _, child = ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
-            tree["relationships"].append((obj.identifier, member.attrib["identifier"]))
+            tree.relationships.append((obj.identifier, member.attrib["identifier"]))
         for parent in child.parents:
-            tree["relationships"].append((parent, child.identifier))
+            tree.relationships.append((parent, child.identifier))
     return obj
 
 
-def ingest_catalog(path: str, tree: Optional[Dict[str, Collection]] = None) -> Dict[str, Dict[str, Collection]]:
+def ingest_catalog(path: str, tree: Optional[Catalog] = None) -> Tuple[Catalog, Collection]:
     """
 
     :param path:
@@ -71,7 +80,7 @@ def ingest_catalog(path: str, tree: Optional[Dict[str, Collection]] = None) -> D
     current_dir = os.path.abspath(os.path.dirname(path))
 
     root: ET.Element = xml.getroot()
-    tree = tree or {"relationships": [], "objects": []}
+    tree = tree or Catalog()
     root_collection = parse_collection(root, basedir=current_dir, tree=tree)
     return tree, root_collection
 
