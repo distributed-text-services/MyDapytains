@@ -34,23 +34,32 @@ def parse_metadata(xml: ET.Element):
     if extensions:
         obj["extensions"] = extensions
 
+    # Parents
+    parents = []
+    for node in xml.xpath("./parent/text()"):
+        parents.append(str(node))
+    obj["parents"] = parents
+
     return obj
 
 
 def parse_collection(xml: ET.Element, basedir: str, tree: Dict[str, Collection]) -> Collection:
     obj = parse_metadata(xml)
     obj = Collection(**obj, resource=xml.tag == "resource")
-    tree[obj.identifier] = obj
+    tree["objects"][obj.identifier] = obj
     for member in xml.xpath("./members/*"):
         if member.xpath("./title"):
-            parse_collection(member, basedir, tree)
-            # ToDo: deal with children ?
+            child = parse_collection(member, basedir, tree)
+            tree["relationships"].append((obj.identifier, child.identifier))
         else:
-            ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
+            _, child = ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
+            tree["relationships"].append((obj.identifier, member.attrib["identifier"]))
+        for parent in child.parents:
+            tree["relationships"].append((parent, child.identifier))
     return obj
 
 
-def ingest_catalog(path: str, tree: Optional[Dict[str, Collection]] = None) -> Dict[str, Collection]:
+def ingest_catalog(path: str, tree: Optional[Dict[str, Collection]] = None) -> Dict[str, Dict[str, Collection]]:
     """
 
     :param path:
@@ -62,6 +71,7 @@ def ingest_catalog(path: str, tree: Optional[Dict[str, Collection]] = None) -> D
     current_dir = os.path.abspath(os.path.dirname(path))
 
     root: ET.Element = xml.getroot()
-    tree = tree or {}
-    parse_collection(root, basedir=current_dir, tree=tree)
-    return tree
+    tree = tree or {"relationships": [], "objects": []}
+    root_collection = parse_collection(root, basedir=current_dir, tree=tree)
+    return tree, root_collection
+
