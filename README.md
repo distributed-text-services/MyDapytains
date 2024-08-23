@@ -33,5 +33,7 @@ See one of our test files to check out the minimal requirements: we have one
 ### Collection and Resource level guidelines
 
 Collection and Resource level guidelines can be provided through file named dts-metadata.xml in each subfolder of a 
-given repository. We are currently looking at the reuse of former [Capitains V2 guidelines](https://github.com/Capitains/guidelines/blob/edde0323c2e94b3d0d687094e55cb32cac548752/capitains.rng)
+given repository. We are currently looking at using external file that would help you ingest metadata, while leaving you
+the option to load up metadata yourself.
 
+The current schema for the collection catalog ingestion is available in [./tests/catalog/schema.rng](./tests/catalog/schema.rng).

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar 
+    xmlns="http://relaxng.org/ns/structure/1.0"
+    xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0"
+    datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+    <start>
+        <choice>
+            <ref name="resource"/>
+            <ref name="collection"/>
+        </choice>
+    </start>
+    
+    <define name="identifier-and-path">
+        <group>
+            <attribute name="identifier">
+                <a:documentation>Identifier of the Collection or Resource</a:documentation>
+                <data type="anyURI"/>
+            </attribute>
+            <optional>
+                <attribute name="path">
+                    <a:documentation>Path to the relevant Collection or Resource</a:documentation>
+                    <data type="anyURI"/>
+                </attribute>
+            </optional>
+        </group>
+    </define>
+    <define name="parent">
+        <optional>
+          <element name="parent">
+              <a:documentation xml:lang="eng">Identifier of the parent if required by a parent
+                  collection</a:documentation>
+              <data type="anyURI"/>
+          </element>
+        </optional>
+    </define>
+    <define name="baseDetails">
+        <element name="title">
+            <a:documentation>Title / name of a Collection or Resource</a:documentation>
+            <data type="string"/>
+        </element>
+        <optional>
+            <element name="description">
+                <a:documentation>Description of a Collection or Resource</a:documentation>
+                <data type="string"/>
+            </element>
+        </optional>
+    </define>
+    <define name="dublinCore">
+        <element name="dublinCore">
+           <interleave>
+               <zeroOrMore>
+                  <element ns="http://purl.org/dc/terms/">
+                      <a:documentation>Something</a:documentation>
+                      <choice>
+                          <name>abstract</name>
+                          <name>accessRights</name>
+                          <name>accrualMethod</name>
+                          <name>accrualPeriodicity</name>
+                          <name>accrualPolicy</name>
+                          <name>alternative</name>
+                          <name>audience</name>
+                          <name>available</name>
+                          <name>bibliographicCitation</name>
+                          <name>conformsTo</name>
+                          <name>contributor</name>
+                          <name>coverage</name>
+                          <name>created</name>
+                          <name>creator</name>
+                          <name>date</name>
+                          <name>dateAccepted</name>
+                          <name>dateCopyrighted</name>
+                          <name>dateSubmitted</name>
+                          <name>description</name>
+                          <name>educationLevel</name>
+                          <name>extent</name>
+                          <name>format</name>
+                          <name>hasFormat</name>
+                          <name>hasPart</name>
+                          <name>hasVersion</name>
+                          <name>identifier</name>
+                          <name>instructionalMethod</name>
+                          <name>isFormatOf</name>
+                          <name>isPartOf</name>
+                          <name>isReferencedBy</name>
+                          <name>isReplacedBy</name>
+                          <name>isRequiredBy</name>
+                          <name>issued</name>
+                          <name>isVersionOf</name>
+                          <name>language</name>
+                          <name>license</name>
+                          <name>mediator</name>
+                          <name>medium</name>
+                          <name>modified</name>
+                          <name>provenance</name>
+                          <name>publisher</name>
+                          <name>references</name>
+                          <name>relation</name>
+                          <name>replaces</name>
+                          <name>requires</name>
+                          <name>rights</name>
+                          <name>rightsHolder</name>
+                          <name>source</name>
+                          <name>spatial</name>
+                          <name>subject</name>
+                          <name>tableOfContents</name>
+                          <name>temporal</name>
+                          <name>title</name>
+                          <name>type</name>
+                          <name>valid</name>
+                      </choice>
+                      <optional>
+                          <attribute name="xml:lang">
+                              <data type="language"/>
+                          </attribute>
+                      </optional>
+                      <data type="string"/>
+                  </element>
+               </zeroOrMore>
+           </interleave>
+        </element>
+       
+    </define>
+    <define name="extension">
+        <element>
+            <a:documentation>Structured metadata contains any other optional metadata that are not part of
+                DublinCore Terms namespace</a:documentation>
+            <name>extensions</name>
+            <zeroOrMore>
+                <element>
+                    <anyName>
+                        <except>
+                            <nsName ns="http://purl.org/dc/terms/"/>
+                        </except>
+                    </anyName>
+                    <optional>
+                        <attribute name="xml:lang">
+                            <data type="language"/>
+                        </attribute>
+                    </optional>
+                    <text/>
+                </element>
+            </zeroOrMore>
+        </element>
+    </define>
+    <define name="members">
+        <a:documentation>Children member of a collection or ressource</a:documentation>
+        <element>
+            <name>members</name>
+             <interleave>
+                 <oneOrMore>
+                     <choice>
+                         <ref name="collection"/>
+                         <ref name="resource"/>
+                         <element>
+                             <a:documentation>Relative link to a secondary collection file</a:documentation>
+                             <choice>
+                                 <name>collection</name>
+                                 <name>resource</name>
+                             </choice>
+                             <ref name="identifier-and-path"/>
+                         </element>
+                     </choice>
+                 </oneOrMore>
+             </interleave>
+        </element>
+    </define>
+    <define name="collection-pattern">
+        <ref name="identifier-and-path"/>
+        <ref name="parent"/>
+        <ref name="baseDetails"/>
+        <optional>
+            <ref name="dublinCore"/>
+        </optional>
+        <optional>
+            <ref name="extension"/>
+        </optional>
+        <optional>
+            <ref name="members"/>
+        </optional>
+    </define>
+    <define name="resource">
+        <element name="resource">
+            <ref name="collection-pattern"/>
+        </element>
+    </define>
+    <define name="collection">
+        <element name="collection">
+            <ref name="collection-pattern"/>
+        </element>
+    </define>
+</grammar>

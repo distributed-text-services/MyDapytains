@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?oxygen RNGSchema="schema.rng" type="xml" ?>
+<collection identifier="https://foo.bar/default">
+    <title>A collection</title>
+    <dublinCore>
+        <abstract xmlns="http://purl.org/dc/terms/">This is a perfect example of an absract.</abstract>
+        <abstract xmlns="http://purl.org/dc/terms/" xml:lang="fr">Et je peux traduire en français</abstract>
+    </dublinCore>
+    <members>
+        <resource identifier="https://foo.bar/text" path="../tei/base_tei.xml">
+            <title>A simple resource</title>
+            <description>With a description</description>
+            <dublinCore>
+                <title xmlns="http://purl.org/dc/terms/">A simple resource</title>
+            </dublinCore>
+            <extensions>
+                <something xmlns="https://foaf.com/foaf">Truc</something>
+            </extensions>
+        </resource>
+    </members>
+</collection>
