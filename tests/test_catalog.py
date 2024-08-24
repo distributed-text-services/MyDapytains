@@ -60,5 +60,6 @@ def test_ingestion():
     assert sorted(tree.relationships) == [
         ('https://example.org/collection1', 'https://example.org/resource1'),
         ('https://foo.bar/default', 'https://example.org/collection1'),
+        ('https://foo.bar/default', 'https://example.org/resource1',),
         ('https://foo.bar/default', 'https://foo.bar/text')
     ]

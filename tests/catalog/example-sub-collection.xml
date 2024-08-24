@@ -9,6 +9,7 @@
         <resource identifier="https://example.org/resource1" filepath="../tei/multiple_tree.xml">
             <title>Historical Document</title>
             <description>A document about historical events.</description>
+            <parent>https://foo.bar/default</parent>
             <dublinCore>
                 <subject xmlns="http://purl.org/dc/terms/">World War II</subject>
                 <language xmlns="http://purl.org/dc/terms/">en</language>

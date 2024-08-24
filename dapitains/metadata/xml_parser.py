@@ -15,7 +15,7 @@ class Catalog:
     objects: Dict[str, Collection] = field(default_factory=dict)
 
 
-def parse_metadata(xml: ET.Element) -> Dict[str, Any]:
+def parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
     """ Parse Metadata
 
     :param xml: Collection/Resource tag
@@ -50,9 +50,8 @@ def parse_metadata(xml: ET.Element) -> Dict[str, Any]:
     parents = []
     for node in xml.xpath("./parent/text()"):
         parents.append(str(node))
-    obj["parents"] = parents
 
-    return obj
+    return obj, parents
 
 
 def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection:
@@ -62,8 +61,10 @@ def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection
     :param basedir: Directory used to resolve filepath, that are relative to the main object
     :param tree: Catalog that is updated with objects.
     """
-    obj = parse_metadata(xml)
+    obj, parents = parse_metadata(xml)
     obj = Collection(**obj, resource=xml.tag == "resource")
+    for parent in parents:
+        tree.relationships.append((parent, obj.identifier))
     tree.objects[obj.identifier] = obj
     if xml.attrib.get("filepath") and obj.resource:
         obj.filepath = os.path.normpath(os.path.join(basedir, xml.attrib["filepath"]))
@@ -74,8 +75,6 @@ def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection
         else:
             _, child = ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
             tree.relationships.append((obj.identifier, child.identifier))
-        for parent in child.parents:
-            tree.relationships.append((parent, child.identifier))
     return obj
 
 
