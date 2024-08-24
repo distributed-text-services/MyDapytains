@@ -4,10 +4,11 @@ from dapitains.metadata.xml_parser import ingest_catalog
 from dapitains.metadata.classes import *
 
 
-local_dir = os.path.join(os.path.dirname(__file__), "catalog")
+local_dir = os.path.join(os.path.dirname(__file__))
+
 
 def test_ingestion():
-    tree, _ = ingest_catalog(f"{local_dir}/example-collection.xml")
+    tree, _ = ingest_catalog(f"{local_dir}/catalog/example-collection.xml")
 
     assert tree.objects == {
         "https://foo.bar/default": Collection(
@@ -43,7 +44,7 @@ def test_ingestion():
                 DublinCore(term='language', value='en', language=None)
             ],
             extension=[], resource=True,
-            filepath=os.path.abspath("tei/multiple_tree.xml")
+            filepath=os.path.abspath(f"{local_dir}/tei/multiple_tree.xml")
         ),
         "https://foo.bar/text": Collection(
             identifier='https://foo.bar/text',
@@ -56,6 +57,6 @@ def test_ingestion():
             ],
             extension=[],
             resource=True,
-            filepath=os.path.abspath("tei/base_tei.xml")
+            filepath=os.path.abspath(f"{local_dir}/tei/base_tei.xml")
         )
     }
