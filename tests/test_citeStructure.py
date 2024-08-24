@@ -58,7 +58,7 @@ def test_parsing():
     # Generate XPath for "Luke 1" (partial match)
     assert parser.generate_xpath("Luke") == "//body/div[@n='Luke']"
 
-    assert [root.to_dts() for root in parser.find_refs(root=TEI, structure=parser.units)] == [
+    assert [root.json() for root in parser.find_refs(root=TEI, structure=parser.units)] == [
         {'citeType': 'book', 'ref': 'Luke', 'members': [
             {'citeType': 'chapter', 'ref': 'Luke 1', 'members': [
                 {'citeType': 'verse', 'ref': 'Luke 1:1'},
@@ -82,7 +82,7 @@ def test_cite_data():
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
     parser = CiteStructureParser(citeStructure)
     refs = parser.find_refs(root=TEI, structure=parser.units)
-    refs = [ref.to_dts() for ref in refs]
+    refs = [ref.json() for ref in refs]
     assert refs == [
         {'citeType': 'book', 'ref': '1', 'dublinCore': {
             'http://purl.org/dc/terms/title': ['Introduction', 'Introduction'],
@@ -106,7 +106,7 @@ def test_advanced_cite_data():
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
     parser = CiteStructureParser(citeStructure)
     refs = parser.find_refs(root=TEI, structure=parser.units)
-    refs = [ref.to_dts() for ref in refs]
+    refs = [ref.json() for ref in refs]
     assert refs == [
         {'citeType': 'part', 'ref': 'part-1', 'members': [
             {'citeType': 'book', 'ref': 'part-1.1', 'dublinCore': {

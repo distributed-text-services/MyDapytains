@@ -48,14 +48,14 @@ class CitableUnit:
     dublinCore: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     extension: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
 
-    def to_dts(self):
+    def json(self):
         out = {
             "citeType": self.citeType,
             "ref": self.ref
         }
         if self.children:
             out["members"] = [
-                member.to_dts()
+                member.json()
                 for member in self.children
             ]
         if self.dublinCore:

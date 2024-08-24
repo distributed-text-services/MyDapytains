@@ -1,6 +1,6 @@
 try:
     from flask_sqlalchemy import SQLAlchemy
-    from sqlalchemy.ext.mutable import MutableDict
+    from sqlalchemy.ext.mutable import MutableDict, Mutable
     from sqlalchemy.types import TypeDecorator, TEXT
     import click
 except ImportError:
@@ -8,7 +8,10 @@ except ImportError:
     raise
 
 import dapitains.metadata.classes as abstracts
+from dapitains.metadata.xml_parser import Catalog
+from dapitains.tei.document import Document
 import json
+
 
 db = SQLAlchemy()
 
@@ -18,20 +21,19 @@ parent_child_association = db.Table('parent_child_association',
 )
 
 
-class JSONEncodedDict(TypeDecorator):
+class JSONEncoded(TypeDecorator):
     """Enables JSON storage by encoding and decoding on the fly."""
     impl = TEXT
 
     def process_bind_param(self, value, dialect):
         if value is None:
-            return ''
-        elif isinstance(value, dict):
+            return None
+        else:
             return json.dumps(value)
-        return value
 
     def process_result_value(self, value, dialect):
         if value is None:
-            return '""'
+            return None
         return json.loads(value)
 
 class Collection(db.Model):
@@ -43,8 +45,8 @@ class Collection(db.Model):
     description = db.Column(db.String, nullable=True)
     resource = db.Column(db.Boolean, default=False)
     filepath = db.Column(db.String, nullable=True)
-    dublin_core = db.Column(MutableDict.as_mutable(JSONEncodedDict), nullable=True)
-    extensions = db.Column(MutableDict.as_mutable(JSONEncodedDict), nullable=True)
+    dublin_core = db.Column(JSONEncoded, nullable=True)
+    extensions = db.Column(JSONEncoded, nullable=True)
 
     # One-to-one relationship with Navigation
     navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy='noload')
@@ -67,8 +69,8 @@ class Collection(db.Model):
             resource=obj.resource,
             filepath=obj.filepath,
             # We are dumping because it's not read or accessible
-            dublin_core=json.dumps([dub.json() for dub in obj.dublin_core]),
-            extensions=json.dumps([ext.json() for ext in obj.extension])
+            dublin_core=[dub.json() for dub in obj.dublin_core],
+            extensions=[ext.json() for ext in obj.extension]
         )
 
 class Navigation(db.Model):
@@ -79,19 +81,5 @@ class Navigation(db.Model):
     default_tree = db.Column(db.String, nullable=True)
 
     # JSON fields stored as TEXT
-    paths = db.Column(MutableDict.as_mutable(JSONEncodedDict), nullable=False, default={})
-    references = db.Column(MutableDict.as_mutable(JSONEncodedDict), nullable=False, default={})
-
-if __name__ == "__main__":
-    import flask
-    import os
-    app = flask.Flask(__name__)
-
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    db_path = os.path.join(basedir, 'app.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-    db.init_app(app)
-    with app.app_context():
-        db.create_all()
+    paths = db.Column(JSONEncoded, nullable=False, default={})
+    references = db.Column(JSONEncoded, nullable=False, default={})
