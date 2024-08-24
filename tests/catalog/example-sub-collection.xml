@@ -1,0 +1,22 @@
+<collection identifier="https://example.org/collection1">
+    <title>My First Collection</title>
+    <dublinCore>
+        <creator xmlns="http://purl.org/dc/terms/">John Doe</creator>
+        <subject xmlns="http://purl.org/dc/terms/">History</subject>
+        <date xmlns="http://purl.org/dc/terms/">2023-08-24</date>
+    </dublinCore>
+    <members>
+        <resource identifier="https://example.org/resource1" path="../data/resource1.xml">
+            <title>Historical Document</title>
+            <description>A document about historical events.</description>
+            <dublinCore>
+                <subject xmlns="http://purl.org/dc/terms/">World War II</subject>
+                <language xmlns="http://purl.org/dc/terms/">en</language>
+            </dublinCore>
+            <extensions>
+                <rating xmlns="https://example.org/rating">5 stars</rating>
+                <comment xmlns="https://example.org/comment">Very informative document.</comment>
+            </extensions>
+        </resource>
+    </members>
+</collection>

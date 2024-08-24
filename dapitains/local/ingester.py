@@ -3,7 +3,7 @@ import re
 from typing import Dict, Optional, List, Tuple
 from dataclasses import dataclass, field
 import lxml.etree as ET
-from dapitains.local.collections import DublinCore, Extension, Collection, CitableUnit
+from dapitains.local.collection import DublinCore, Extension, Collection, CitableUnit
 
 
 _re_tag = re.compile(r"[{}]")
@@ -62,7 +62,7 @@ def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection
             tree.relationships.append((obj.identifier, child.identifier))
         else:
             _, child = ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
-            tree.relationships.append((obj.identifier, member.attrib["identifier"]))
+            tree.relationships.append((obj.identifier, child.identifier))
         for parent in child.parents:
             tree.relationships.append((parent, child.identifier))
     return obj
