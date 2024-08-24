@@ -60,3 +60,9 @@ def test_ingestion():
             filepath=os.path.abspath(f"{local_dir}/tei/base_tei.xml")
         )
     }
+
+    assert sorted(tree.relationships) == [
+        ('https://example.org/collection1', 'https://example.org/resource1'),
+        ('https://foo.bar/default', 'https://example.org/collection1'),
+        ('https://foo.bar/default', 'https://foo.bar/text')
+    ]
