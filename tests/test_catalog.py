@@ -13,7 +13,7 @@ def test_ingestion():
     assert tree.objects == {
         "https://foo.bar/default": Collection(
             identifier='https://foo.bar/default',
-            title='A collection', description=None, parents=[], children=[],
+            title='A collection', description=None,
             dublin_core=[
                 DublinCore(term='abstract', value='This is a perfect example of an absract.', language=None),
                 DublinCore(term='abstract', value='Et je peux traduire en français', language='fr')], extension=[],
@@ -24,8 +24,6 @@ def test_ingestion():
             identifier='https://example.org/collection1',
             title='My First Collection',
             description=None,
-            parents=[],
-            children=[],
             dublin_core=[
                 DublinCore(term='creator', value='John Doe', language=None),
                 DublinCore(term='subject', value='History', language=None),
@@ -38,7 +36,7 @@ def test_ingestion():
         "https://example.org/resource1": Collection(
             identifier='https://example.org/resource1',
             title='Historical Document',
-            description='A document about historical events.', parents=[], children=[],
+            description='A document about historical events.',
             dublin_core=[
                 DublinCore(term='subject', value='World War II', language=None),
                 DublinCore(term='language', value='en', language=None)
@@ -50,8 +48,6 @@ def test_ingestion():
             identifier='https://foo.bar/text',
             title='A simple resource',
             description='With a description',
-            parents=[],
-            children=[],
             dublin_core=[
                 DublinCore(term='title', value='A simple resource', language=None)
             ],
