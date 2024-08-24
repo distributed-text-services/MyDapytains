@@ -1,10 +1,9 @@
 import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from saxonche import PyXdmNode, PyXPathProcessor
 from collections import namedtuple, defaultdict
 from functools import cmp_to_key
-from dapitains.constants import PROCESSOR, get_xpath_proc
+from dapitains.constants import get_xpath_proc, saxonlib
 
 
 @dataclass
@@ -45,7 +44,7 @@ class CitableUnit:
     citeType: str
     ref: str
     children: List["CitableUnit"] = field(default_factory=list)
-    node: Optional[PyXdmNode] = None
+    node: Optional[saxonlib.PyXdmNode] = None
     dublinCore: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     extension: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
 
@@ -69,7 +68,7 @@ class CitableUnit:
 _simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
 
 
-def get_children_cite_structures(elem: PyXdmNode) -> List[PyXdmNode]:
+def get_children_cite_structures(elem: saxonlib.PyXdmNode) -> List[saxonlib.PyXdmNode]:
     xpath = get_xpath_proc(elem=elem).evaluate("./citeStructure")
     if xpath is not None:
         return list(iter(xpath))
@@ -82,7 +81,7 @@ class CiteStructureParser:
     ToDo: Add the ability to use CiteData. This will mean moving from len(element) to len(element.xpath("./citeStructure"))
     ToDo: Add the ability to use citationTree labels
     """
-    def __init__(self, root: PyXdmNode):
+    def __init__(self, root: saxonlib.PyXdmNode):
         self.root = root
         self.xpath_matcher: Dict[str, str] = {}
         self.regex_pattern, cite_structure = self.build_regex_and_xpath(
@@ -189,7 +188,7 @@ class CiteStructureParser:
             self,
             child_xpath: str,
             structure: CitableStructure,
-            xpath_processor: PyXPathProcessor,
+            xpath_processor: saxonlib.PyXPathProcessor,
             unit: CitableUnit):
         # target = self.generate_xpath(child.ref)
         if len(structure.children) == 1:
@@ -207,7 +206,7 @@ class CiteStructureParser:
 
     def find_refs(
             self,
-            root: PyXdmNode,
+            root: saxonlib.PyXdmNode,
             structure: CitableStructure = None,
             unit: Optional[CitableUnit] = None
     ) -> List[CitableUnit]:
@@ -245,7 +244,7 @@ class CiteStructureParser:
 
     def find_refs_from_branches(
             self,
-            root: PyXdmNode,
+            root: saxonlib.PyXdmNode,
             structure: List[CitableStructure],
             unit: Optional[CitableUnit] = None
     ) -> List[CitableUnit]:

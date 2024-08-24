@@ -1,5 +1,7 @@
-from dapitains.local.ingester import ingest_catalog
-from dapitains.local.collection import *
+import os.path
+
+from dapitains.metadata.xml_parser import ingest_catalog
+from dapitains.metadata.classes import *
 
 
 def test_ingestion():
@@ -39,7 +41,7 @@ def test_ingestion():
                 DublinCore(term='language', value='en', language=None)
             ],
             extension=[], resource=True,
-            filepath=None
+            filepath=os.path.abspath("tei/multiple_tree.xml")
         ),
         "https://foo.bar/text": Collection(
             identifier='https://foo.bar/text',
@@ -52,6 +54,6 @@ def test_ingestion():
             ],
             extension=[],
             resource=True,
-            filepath=None
+            filepath=os.path.abspath("tei/base_tei.xml")
         )
     }

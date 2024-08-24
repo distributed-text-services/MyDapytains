@@ -1,10 +1,9 @@
-from dapitains.local.citeStructure import CiteStructureParser
-from dapitains.constants import PROCESSOR, get_xpath_proc
+from dapitains.tei.citeStructure import CiteStructureParser
+from dapitains.constants import PROCESSOR, get_xpath_proc, saxonlib
 from typing import Optional, List, Tuple, Dict
 from lxml.etree import fromstring
 from lxml.objectify import Element, SubElement
 from lxml import objectify
-from saxonche import PyXdmNode, PyXPathProcessor
 import re
 from dapitains.errors import UnknownTreeName
 
@@ -31,7 +30,7 @@ def xpath_walk(xpath: List[str]) -> Tuple[str, List[str]]:
     return current, queue
 
 
-def is_traversing_xpath(parent: PyXdmNode, xpath: str) -> bool:
+def is_traversing_xpath(parent: saxonlib.PyXdmNode, xpath: str) -> bool:
     """ Check if an XPath is traversing more than one level
 
     :param parent:
@@ -49,7 +48,7 @@ def is_traversing_xpath(parent: PyXdmNode, xpath: str) -> bool:
     return False
 
 
-def xpath_walk_step(parent: PyXdmNode, xpath: str) -> Tuple[PyXdmNode, bool]:
+def xpath_walk_step(parent: saxonlib.PyXdmNode, xpath: str) -> Tuple[saxonlib.PyXdmNode, bool]:
     """ Perform an XPath on an element to find a child that is part of the XPath.
     If the child is a direct member of the path, returns a False boolean indicating to move
         onto the next element.
@@ -71,7 +70,7 @@ def xpath_walk_step(parent: PyXdmNode, xpath: str) -> Tuple[PyXdmNode, bool]:
         return xpath_proc.evaluate_single(xpath), False
 
 
-def copy_node(node: PyXdmNode, include_children=False, parent: Optional[Element] = None):
+def copy_node(node: saxonlib.PyXdmNode, include_children=False, parent: Optional[Element] = None):
     """ Copy an XML Node
 
     :param node: Etree Node
@@ -124,7 +123,7 @@ def normalize_xpath(xpath: List[str]) -> List[str]:
 
 
 def reconstruct_doc(
-    root: PyXdmNode,
+    root: saxonlib.PyXdmNode,
     start_xpath: List[str],
     new_tree: Optional[Element] = None,
     end_xpath: Optional[List[str]] = None

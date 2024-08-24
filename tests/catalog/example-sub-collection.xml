@@ -6,7 +6,7 @@
         <date xmlns="http://purl.org/dc/terms/">2023-08-24</date>
     </dublinCore>
     <members>
-        <resource identifier="https://example.org/resource1" path="../data/resource1.xml">
+        <resource identifier="https://example.org/resource1" filepath="../tei/multiple_tree.xml">
             <title>Historical Document</title>
             <description>A document about historical events.</description>
             <dublinCore>
