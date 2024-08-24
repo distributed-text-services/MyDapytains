@@ -1,12 +1,28 @@
+import logging
+import os
+
 try:
-    from saxonche import PySaxonProcessor, PyXdmNode, PyXPathProcessor
+    saxon_version = os.getenv("pysaxon", "HE")
+    saxon_license = os.getenv("pysaxon_license", "")
+    logging.info(f"Using SaxonLib {saxon_version}")
+    if saxon_version == "HE":
+        import saxonche as saxonlib
+        PROCESSOR = saxonlib.PySaxonProcessor()
+    elif saxon_version == "PE":
+        import saxoncpe as saxonlib
+        PROCESSOR = saxonlib.PySaxonProcessor(license=saxon_license)
+    elif saxon_version == "PE":
+        import saxoncee as saxonlib
+        PROCESSOR = saxonlib.PySaxonProcessor(license=saxon_license)
 except ImportError:
-    print("PySaxonC-HE not found")
+    print("Unable to import the required PySaxonC version, resorting to PySaxonC-HE")
+    import saxonche as saxonlib
+    PROCESSOR = saxonlib.PySaxonProcessor()
 
-PROCESSOR = PySaxonProcessor()
 
 
-def get_xpath_proc(elem: PyXdmNode) -> PyXPathProcessor:
+
+def get_xpath_proc(elem: saxonlib.PyXdmNode) -> saxonlib.PyXPathProcessor:
     """ Builds an XPath processor around a given element, with the default TEI namespace
 
     :param elem: An XML node, root or not

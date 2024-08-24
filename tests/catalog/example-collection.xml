@@ -7,7 +7,8 @@
         <abstract xmlns="http://purl.org/dc/terms/" xml:lang="fr">Et je peux traduire en français</abstract>
     </dublinCore>
     <members>
-        <resource identifier="https://foo.bar/text" path="../tei/base_tei.xml">
+        <collection filepath="./example-sub-collection.xml"/>
+        <resource identifier="https://foo.bar/text" filepath="../tei/base_tei.xml">
             <title>A simple resource</title>
             <description>With a description</description>
             <dublinCore>
