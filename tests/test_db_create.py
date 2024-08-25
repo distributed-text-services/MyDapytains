@@ -48,8 +48,12 @@ def test_simple_path():
             "Mark 1:3": [1, 0, 3]
         }
     }
-    assert strip_members(get_member_by_path(refs[None], paths[None]["Luke"])) == {'citeType': 'book', 'ref': 'Luke'}
-    assert get_member_by_path(refs[None], paths[None]["Mark 1:3"]) == {'citeType': 'verse', 'ref': 'Mark 1:3'}
+    assert strip_members(
+        get_member_by_path(refs[None], paths[None]["Luke"])
+    ) == {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None}, "Check that members are stripped"
+    assert get_member_by_path(
+        refs[None], paths[None]["Mark 1:3"]
+    ) == {'citeType': 'verse', 'ref': 'Mark 1:3', "level": 3, "parent": "Mark 1"}
 
 
 def test_navigation():
@@ -59,19 +63,59 @@ def test_navigation():
         for tree, obj in doc.citeStructure.items()
     }
     paths = {tree: generate_paths(ref) for tree, ref in refs.items()}
+
     assert get_nav(refs[None], paths[None], start_or_ref=None, end=None, down=1) == ([
-        {'citeType': 'book', 'ref': 'Luke'},
-        {'citeType': 'book', 'ref': 'Mark'}
-    ], None, None)
-    assert get_nav(refs[None], paths[None], start_or_ref="Luke 1:1", end="Luke 1#1", down=0) == ([
-        {'citeType': 'verse', 'ref': 'Luke 1:1'},
-        {'citeType': 'verse', 'ref': 'Luke 1:2'},
-        {'citeType': 'bloup', 'ref': 'Luke 1#1'}
-    ], {'citeType': 'verse', 'ref': 'Luke 1:1'}, {'citeType': 'bloup', 'ref': 'Luke 1#1'})
-    assert get_nav(refs[None], paths[None], start_or_ref="Luke 1:1", end="Mark 1:2", down=0) == ([
-        {'citeType': 'verse', 'ref': 'Luke 1:1'},
-        {'citeType': 'verse', 'ref': 'Luke 1:2'},
-        {'citeType': 'bloup', 'ref': 'Luke 1#1'},
-        {'citeType': 'verse', 'ref': 'Mark 1:1'},
-        {'citeType': 'verse', 'ref': 'Mark 1:2'}
-    ], {'citeType': 'verse', 'ref': 'Luke 1:1'}, {'citeType': 'verse', 'ref': 'Mark 1:2'})
+        {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
+        {'citeType': 'book', 'ref': 'Mark', "level": 1, "parent": None}
+    ], None, None), "Check that base function works"
+
+    assert get_nav(refs[None], paths[None], start_or_ref="Luke 1:1", end="Luke 1#1", down=0) == (
+        [
+            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+        ],
+        {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+        {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+    ), "Check that ?start/end works"
+
+    assert get_nav(refs[None], paths[None], start_or_ref="Luke 1:1", end="Mark 1:2", down=0) == (
+        [
+            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'ref': 'Mark 1:1', "level": 3, "parent": "Mark 1"},
+            {'citeType': 'verse', 'ref': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
+        ],
+        {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+        {'citeType': 'verse', 'ref': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
+    ), "Check that ?start/end works across parents"
+
+    assert get_nav(refs[None], paths[None], start_or_ref="Luke 1", down=1) == (
+        [
+            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+        ],
+        {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
+        None
+    ), "Check that ?ref works"
+
+    assert get_nav(refs[None], paths[None], start_or_ref="Luke", down=1) == (
+        [
+            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
+        ],
+        {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
+        None
+    ), "Check that ?ref works"
+
+    assert get_nav(refs[None], paths[None], start_or_ref=None, end=None, down=2) == (
+        [
+            {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
+            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
+            {'citeType': 'book', 'ref': 'Mark', "level": 1, "parent": None},
+            {'citeType': 'chapter', 'ref': 'Mark 1', "level": 2, "parent": "Mark"}
+        ],
+        None,
+        None
+    ), "Check that down=2 works"

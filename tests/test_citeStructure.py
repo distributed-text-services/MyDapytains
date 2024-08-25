@@ -59,19 +59,20 @@ def test_parsing():
     assert parser.generate_xpath("Luke") == "//body/div[@n='Luke']"
 
     assert [root.json() for root in parser.find_refs(root=TEI, structure=parser.units)] == [
-        {'citeType': 'book', 'ref': 'Luke', 'members': [
-            {'citeType': 'chapter', 'ref': 'Luke 1', 'members': [
-                {'citeType': 'verse', 'ref': 'Luke 1:1'},
-                {'citeType': 'verse', 'ref': 'Luke 1:2'},
-                {'citeType': 'bloup', 'ref': 'Luke 1#1'}
-                ]}
+        {'citeType': 'book', 'ref': 'Luke', 'parent': None, 'level': 1, 'members': [
+            {'citeType': 'chapter', 'ref': 'Luke 1', 'parent': 'Luke', 'level': 2,  'members': [
+                {'citeType': 'verse', 'ref': 'Luke 1:1', 'parent': 'Luke 1', 'level': 3},
+                {'citeType': 'verse', 'ref': 'Luke 1:2', 'parent': 'Luke 1', 'level': 3},
+                {'citeType': 'bloup', 'ref': 'Luke 1#1', 'parent': 'Luke 1', 'level': 3}
+                ]
+            }
         ]},
-        {'citeType': 'book', 'ref': 'Mark', 'members': [
-            {'citeType': 'chapter', 'ref': 'Mark 1', 'members': [
-                {'citeType': 'verse', 'ref': 'Mark 1:1'},
-                {'citeType': 'verse', 'ref': 'Mark 1:2'},
-                {'citeType': 'bloup', 'ref': 'Mark 1#1'},
-                {'citeType': 'verse', 'ref': 'Mark 1:3'}
+        {'citeType': 'book', 'ref': 'Mark', 'parent': None, 'level': 1, 'members': [
+            {'citeType': 'chapter', 'ref': 'Mark 1', 'parent': 'Mark', 'level': 2, 'members': [
+                {'citeType': 'verse', 'ref': 'Mark 1:1', 'parent': 'Mark 1', 'level': 3},
+                {'citeType': 'verse', 'ref': 'Mark 1:2', 'parent': 'Mark 1', 'level': 3},
+                {'citeType': 'bloup', 'ref': 'Mark 1#1', 'parent': 'Mark 1', 'level': 3},
+                {'citeType': 'verse', 'ref': 'Mark 1:3', 'parent': 'Mark 1', 'level': 3}
             ]}
         ]}
     ]
@@ -84,17 +85,17 @@ def test_cite_data():
     refs = parser.find_refs(root=TEI, structure=parser.units)
     refs = [ref.json() for ref in refs]
     assert refs == [
-        {'citeType': 'book', 'ref': '1', 'dublinCore': {
+        {'citeType': 'book', 'ref': '1', 'parent': None, 'level': 1, 'dublinCore': {
             'http://purl.org/dc/terms/title': ['Introduction', 'Introduction'],
             'http://purl.org/dc/terms/creator': ['John Doe']}},
-        {'citeType': 'book', 'ref': '2', 'dublinCore': {'http://purl.org/dc/terms/title': ["Background", 'Contexte']}},
-        {'citeType': 'book', 'ref': '3', 'dublinCore': {
+        {'citeType': 'book', 'ref': '2', 'parent': None, 'level': 1, 'dublinCore': {'http://purl.org/dc/terms/title': ["Background", 'Contexte']}},
+        {'citeType': 'book', 'ref': '3', 'parent': None, 'level': 1, 'dublinCore': {
             'http://purl.org/dc/terms/title': ['Methodology', 'Méthodologie'],
             'http://purl.org/dc/terms/creator': ['Albert Einstein']}},
-        {'citeType': 'book', 'ref': '4', 'dublinCore': {
+        {'citeType': 'book', 'ref': '4', 'parent': None, 'level': 1, 'dublinCore': {
             'http://purl.org/dc/terms/title': ['Results', 'Résultats'],
             'http://purl.org/dc/terms/creator': ['Isaac Newton']}},
-        {'citeType': 'book', 'ref': '5', 'dublinCore': {
+        {'citeType': 'book', 'ref': '5', 'parent': None, 'level': 1, 'dublinCore': {
             'http://purl.org/dc/terms/title': ['Conclusion', 'Conclusion'],
             'http://purl.org/dc/terms/creator': ['Marie Curie']
         }}]
@@ -108,24 +109,24 @@ def test_advanced_cite_data():
     refs = parser.find_refs(root=TEI, structure=parser.units)
     refs = [ref.json() for ref in refs]
     assert refs == [
-        {'citeType': 'part', 'ref': 'part-1', 'members': [
-            {'citeType': 'book', 'ref': 'part-1.1', 'dublinCore': {
+        {'citeType': 'part', 'ref': 'part-1', 'parent': None, 'level': 1, 'members': [
+            {'citeType': 'book', 'ref': 'part-1.1', 'parent': 'part-1', 'level': 2, 'dublinCore': {
                 'http://purl.org/dc/terms/title': ['Introduction', 'Introduction'],
                 'http://purl.org/dc/terms/creator': ['John Doe']}},
-            {'citeType': 'book', 'ref': 'part-1.2', 'dublinCore': {
+            {'citeType': 'book', 'ref': 'part-1.2', 'parent': 'part-1', 'level': 2, 'dublinCore': {
                 'http://purl.org/dc/terms/title': ["Background", 'Contexte']
             }}
         ], 'extension': {"http://foo.bar/part": ["1"]}},
-        {'citeType': 'part', 'ref': 'part-2', 'members': [
-            {'citeType': 'book', 'ref': 'part-2.3', 'dublinCore': {
+        {'citeType': 'part', 'ref': 'part-2', 'parent': None, 'level': 1, 'members': [
+            {'citeType': 'book', 'ref': 'part-2.3', 'parent': 'part-2', 'level': 2, 'dublinCore': {
                 'http://purl.org/dc/terms/title': ['Methodology', 'Méthodologie'],
                 'http://purl.org/dc/terms/creator': ['Albert Einstein']}},
-            {'citeType': 'book', 'ref': 'part-2.4', 'dublinCore': {
+            {'citeType': 'book', 'ref': 'part-2.4', 'parent': 'part-2', 'level': 2, 'dublinCore': {
                 'http://purl.org/dc/terms/title': ['Results', 'Résultats'],
                 'http://purl.org/dc/terms/creator': ['Isaac Newton']}}
         ], 'extension': {"http://foo.bar/part": ["2"]}},
-        {'citeType': 'part', 'ref': 'part-3', 'members': [
-            {'citeType': 'book', 'ref': 'part-3.5', 'dublinCore': {
+        {'citeType': 'part', 'ref': 'part-3', 'parent': None, 'level': 1, 'members': [
+            {'citeType': 'book', 'ref': 'part-3.5', 'parent': 'part-3', 'level': 2, 'dublinCore': {
                 'http://purl.org/dc/terms/title': ['Conclusion', 'Conclusion'],
                 'http://purl.org/dc/terms/creator': ['Marie Curie']
             }}

@@ -80,17 +80,24 @@ def generate_paths(data: List[Dict[str, Any]], path: Optional[List[int]] = None)
 def get_nav(
         refs: List[Dict[str, Any]],
         paths: Dict[str, List[int]],
-        start_or_ref: Optional[str],
-        end: Optional[str],
+        start_or_ref: Optional[str] = None,
+        end: Optional[str] = None,
         down: Optional[int] = 1
 ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """ Given a references set and a path set, provide the CitableUnit from start to end at down level.
+
+    """
 
     paths_index = list(paths.keys())
     start_index, end_index = None, None
-    if start_or_ref:
-        start_index = paths_index.index(start_or_ref)
     if end:
         end_index = paths_index.index(end) + 1
+    if start_or_ref:
+        start_index = paths_index.index(start_or_ref)
+        if not end:
+            for index, reference in enumerate(paths_index[start_index+1:]):
+                if len(paths[start_or_ref]) == len(paths[reference]):
+                    end_index = index + start_index + 1
 
     paths = dict(list(paths.items())[start_index:end_index])
 
