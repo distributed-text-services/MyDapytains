@@ -17,6 +17,7 @@ def store_catalog(catalog: Catalog):
             }
             paths = {key: generate_paths(tree) for key, tree in references.items()}
             nav = Navigation(collection_id=coll_db.id, paths=paths, references=references)
+            print(nav.paths)
             db.session.add(nav)
         db.session.commit()
 

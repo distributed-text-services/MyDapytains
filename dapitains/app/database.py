@@ -13,6 +13,14 @@ from dapitains.tei.document import Document
 import json
 
 
+class CustomKeyJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj):
+        # Only convert 'None' string keys back to None
+        return {None if k == 'null' else k: v for k, v in obj.items()}
+
 db = SQLAlchemy()
 
 parent_child_association = db.Table('parent_child_association',
@@ -34,7 +42,7 @@ class JSONEncoded(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        return json.loads(value)
+        return json.loads(value, cls=CustomKeyJSONDecoder)
 
 class Collection(db.Model):
     __tablename__ = 'collections'
@@ -49,7 +57,7 @@ class Collection(db.Model):
     extensions = db.Column(JSONEncoded, nullable=True)
 
     # One-to-one relationship with Navigation
-    navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy='noload')
+    navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy=True)
 
 
     parents = db.relationship(

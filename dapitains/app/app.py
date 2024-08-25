@@ -17,8 +17,6 @@ def msg_4xx(string, code=404) -> Response:
     return Response(json.dumps({"message": string}), status=code, mimetype="application/json")
 
 
-
-
 def create_app(
         app: Flask,
         use_query: bool = False,
@@ -44,7 +42,10 @@ def create_app(
         collection: Collection = Collection.query.where(Collection.identifier == resource).first()
         if not collection:
             return msg_4xx(f"Unknown resource `{resource}`")
-        nav: Navigation = collection.navigation
+
+        nav: Navigation = Navigation.query.where(Navigation.collection_id == collection.id).first()
+        if nav is None:
+            return msg_4xx(f"The resource `{resource}` does not support navigation")
 
         # Check for forbidden combinations
         if ref or start or end:
@@ -54,7 +55,8 @@ def create_app(
                 return msg_4xx(f"You cannot provide a ref parameter as well as start or end", code=400)
             elif not ref and ((start and not end) or (end and not start)):
                 return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
-            elif down is None and not (ref or start or end):
+        else:
+            if down is None:
                 return msg_4xx(f"The down query parameter is required when requesting without ref or start/end", code=400)
 
         refs = nav.references[tree]
@@ -66,8 +68,8 @@ def create_app(
           "dtsVersion": "1-alpha",
           "@type": "Navigation",
           "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
-          "resource": collection.json(),  # To Do: implement and inject URI templates
-          "members": members
+          #"resource": collection.json(),  # To Do: implement and inject URI templates
+          "member": members
         }
 
     return app, db
@@ -87,12 +89,11 @@ if __name__ == "__main__":
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-
-        catalog, _  = ingest_catalog("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
-        print(catalog)
-        store_catalog(catalog)
+    # with app.app_context():
+        # db.drop_all()
+        # db.create_all()
+        #
+        # catalog, _  = ingest_catalog("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
+        # store_catalog(catalog)
 
     app.run()
