@@ -1,4 +1,9 @@
 from typing import Dict, Any
+
+from sqlalchemy.orm.collections import collection
+
+from tests.test_db_create import test_navigation
+
 try:
     import uritemplate
     from flask import Flask, request, Response
@@ -17,6 +22,44 @@ def msg_4xx(string, code=404) -> Response:
     return Response(json.dumps({"message": string}), status=code, mimetype="application/json")
 
 
+def navigation_view(resource, ref, start, end, tree, down, templates):
+    if not resource:
+        return msg_4xx("Resource parameter was not provided")
+
+    collection: Collection = Collection.query.where(Collection.identifier == resource).first()
+    if not collection:
+        return msg_4xx(f"Unknown resource `{resource}`")
+
+    nav: Navigation = Navigation.query.where(Navigation.collection_id == collection.id).first()
+    if nav is None:
+        return msg_4xx(f"The resource `{resource}` does not support navigation")
+
+    # Check for forbidden combinations
+    if ref or start or end:
+        if tree not in nav.references:
+            return msg_4xx(f"Unknown tree {tree} for resource `{resource}`")
+        elif ref and (start or end):
+            return msg_4xx(f"You cannot provide a ref parameter as well as start or end", code=400)
+        elif not ref and ((start and not end) or (end and not start)):
+            return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
+    else:
+        if down is None:
+            return msg_4xx(f"The down query parameter is required when requesting without ref or start/end", code=400)
+
+    refs = nav.references[tree]
+    paths = nav.paths[tree]
+    members, start, end = get_nav(refs=refs, paths=paths, start_or_ref=start or ref, end=end, down=down)
+    print(templates)
+    return {
+        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
+        "dtsVersion": "1-alpha",
+        "@type": "Navigation",
+        "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
+        "resource": collection.json(inject=templates),  # To Do: implement and inject URI templates
+        "member": members
+    }
+
+
 def create_app(
         app: Flask,
         use_query: bool = False,
@@ -26,8 +69,11 @@ def create_app(
 
     Initialisation of the DB is up to you
     """
+    navigation_template = uritemplate.URITemplate("/navigation/{?resource}{&ref,start,end,tree,down}")
+    collection_template = uritemplate.URITemplate("/navigation/collection/{?id,page,nav}")
+    document_template = uritemplate.URITemplate("/document/{?resource}{&ref,start,end,tree}")
 
-    @app.route("/navigation")
+    @app.route("/navigation/")
     def navigation_route():
         resource = request.args.get("resource")
         ref = request.args.get("ref")
@@ -36,41 +82,11 @@ def create_app(
         tree = request.args.get("tree")
         down = request.args.get("down", type=int, default=None)
 
-        if not resource:
-            return msg_4xx("Resource parameter was not provided")
-
-        collection: Collection = Collection.query.where(Collection.identifier == resource).first()
-        if not collection:
-            return msg_4xx(f"Unknown resource `{resource}`")
-
-        nav: Navigation = Navigation.query.where(Navigation.collection_id == collection.id).first()
-        if nav is None:
-            return msg_4xx(f"The resource `{resource}` does not support navigation")
-
-        # Check for forbidden combinations
-        if ref or start or end:
-            if tree not in nav.references:
-                return msg_4xx(f"Unknown tree {tree} for resource `{resource}`")
-            elif ref and (start or end):
-                return msg_4xx(f"You cannot provide a ref parameter as well as start or end", code=400)
-            elif not ref and ((start and not end) or (end and not start)):
-                return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
-        else:
-            if down is None:
-                return msg_4xx(f"The down query parameter is required when requesting without ref or start/end", code=400)
-
-        refs = nav.references[tree]
-        paths = nav.paths[tree]
-        members, start, end = get_nav(refs=refs, paths=paths, start_or_ref=start or ref, end=end, down=down)
-
-        return {
-          "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-          "dtsVersion": "1-alpha",
-          "@type": "Navigation",
-          "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
-          "resource": collection.json(),  # To Do: implement and inject URI templates
-          "member": members
-        }
+        return navigation_view(resource, ref, start, end, tree, down, templates={
+            "navigation": navigation_template.partial({"resource": resource}).uri,
+            "collection": collection_template.partial({"id": resource}).uri,
+            "document": document_template.partial({"resource": resource}).uri,
+        })
 
     return app, db
 
