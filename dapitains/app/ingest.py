@@ -6,12 +6,20 @@ import copy
 
 def store_catalog(catalog: Catalog):
     for identifier, collection in catalog.objects.items():
-        db.session.add(Collection.from_class(collection))
+        coll_db = Collection.from_class(collection)
+        db.session.add(coll_db)
+        db.session.flush()
         if collection.resource:
             doc = Document(collection.filepath)
             references = {
-                key: struct.find_refs(root=doc.xml, structure=struct.units) for key, struct in doc.citeStructure.items()
+                tree: [ref.json() for ref in obj.find_refs(doc.xml, structure=obj.units)]
+                for tree, obj in doc.citeStructure.items()
             }
+            paths = {key: generate_paths(tree) for key, tree in references.items()}
+            nav = Navigation(collection_id=coll_db.id, paths=paths, references=references)
+            db.session.add(nav)
+        db.session.commit()
+
 
 
 def get_member_by_path(data: List[Dict[str, Any]], path: List[int]) -> Optional[Dict[str, Any]]:

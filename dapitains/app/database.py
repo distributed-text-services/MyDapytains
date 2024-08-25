@@ -39,7 +39,7 @@ class JSONEncoded(TypeDecorator):
 class Collection(db.Model):
     __tablename__ = 'collections'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, nullable=False)
     identifier = db.Column(db.String, nullable=False, unique=True)
     title = db.Column(db.String, nullable=False)
     description = db.Column(db.String, nullable=True)
@@ -76,9 +76,9 @@ class Collection(db.Model):
 class Navigation(db.Model):
     __tablename__ = 'navigations'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True, nullable=False)
     collection_id = db.Column(db.Integer, db.ForeignKey('collections.id'), nullable=False, unique=True)
-    default_tree = db.Column(db.String, nullable=True)
+    # default_tree = db.Column(db.String, nullable=True)
 
     # JSON fields stored as TEXT
     paths = db.Column(JSONEncoded, nullable=False, default={})
