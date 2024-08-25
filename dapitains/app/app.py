@@ -68,7 +68,7 @@ def create_app(
           "dtsVersion": "1-alpha",
           "@type": "Navigation",
           "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
-          #"resource": collection.json(),  # To Do: implement and inject URI templates
+          "resource": collection.json(),  # To Do: implement and inject URI templates
           "member": members
         }
 
@@ -89,11 +89,11 @@ if __name__ == "__main__":
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
-    # with app.app_context():
-        # db.drop_all()
-        # db.create_all()
-        #
-        # catalog, _  = ingest_catalog("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
-        # store_catalog(catalog)
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+
+        catalog, _  = ingest_catalog("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
+        store_catalog(catalog)
 
     app.run()

@@ -9,7 +9,10 @@ class DublinCore:
     language: Optional[str] = None
 
     def json(self):
-        return {"property": f"http://purl.org/dc/terms/{self.term}", "value": self.value, "language": self.language}
+        if self.language:
+            return {"property": f"http://purl.org/dc/terms/{self.term}", "value": self.value, "lang": self.language}
+        else:
+            return {"property": f"http://purl.org/dc/terms/{self.term}", "value": self.value}
 
 
 class Extension(DublinCore):
@@ -18,7 +21,10 @@ class Extension(DublinCore):
     language: Optional[str] = None
 
     def json(self):
-        return {"property": self.term, "value": self.value, "language": self.language}
+        if self.language:
+            return {"property": self.term, "value": self.value, "language": self.language}
+        else:
+            return {"property": self.term, "value": self.value}
 
 
 @dataclass

@@ -7,6 +7,7 @@ except ImportError:
     print("This part of the package can only be imported with the web requirements.")
     raise
 
+from typing import Optional, Dict, Any
 import dapitains.metadata.classes as abstracts
 from dapitains.metadata.xml_parser import Catalog
 from dapitains.tei.document import Document
@@ -67,6 +68,21 @@ class Collection(db.Model):
         secondaryjoin=id == parent_child_association.c.parent_id,
         backref='children'
     )
+
+    def json(self, inject: Optional[Dict[str, Any]] = None):
+        data = {
+            "@type": "Resource" if self.resource else "Collection",
+            "title": self.title,
+            **(inject or {})
+        }
+        if self.description:
+            data["description"] = self.description
+        if self.dublin_core:
+            data["dublinCore"] = self.dublin_core
+        if self.extensions:
+            data["extensions"] = self.extensions
+
+        return data
 
     @classmethod
     def from_class(cls, obj: abstracts.Collection) -> "Collection":
