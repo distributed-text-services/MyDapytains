@@ -61,22 +61,23 @@ def collection_view(
         "totalChildren": coll.total_children,
         "collection": templates["collection"].uri,
         "member": [
-            (
-                related.json(inject=(**{
-                    "collection": templates["collection"].partial({"id": related.identifier}).uri,
-                    "document": templates["collection"].partial({"id": related.identifier}).uri,
-                }, **(
-        {
-                    "navigation": templates["collection"].partial(
-                                                             {"id": related.identifier}).uri,
-                                                     } if hasattr(coll, "citeStructure") else {}))
-                if related.resource
-                else related.json({
-                    "collection": templates["collection"].partial({"id": related.identifier}).uri
-                })
-            )
-            for related in related_collections
-        ]
+                related.json(
+                    inject=dict(
+                        **{
+                            "collection": templates["collection"].partial({"id": related.identifier}).uri,
+                            "document": templates["document"].partial({"resource": related.identifier}).uri,
+                        },
+                        **(
+                            {
+                                "navigation": templates["navigation"].partial({"resource": related.identifier}).uri,
+                            } if coll.citeStructure else {}
+                        )
+                    ) if related.resource else related.json({
+                        "collection": templates["collection"].partial({"id": related.identifier}).uri
+                    })
+                )
+                for related in related_collections
+            ]
     }), mimetype="application/json", status=200)
 
 
@@ -126,7 +127,7 @@ def create_app(
     Initialisation of the DB is up to you
     """
     navigation_template = uritemplate.URITemplate("/navigation/{?resource}{&ref,start,end,tree,down}")
-    collection_template = uritemplate.URITemplate("/navigation/collection/{?id,nav}")
+    collection_template = uritemplate.URITemplate("/collection/collection/{?id,nav}")
     document_template = uritemplate.URITemplate("/document/{?resource}{&ref,start,end,tree}")
 
     @app.route("/collection/")

@@ -58,6 +58,7 @@ class Collection(db.Model):
     filepath = db.Column(db.String, nullable=True)
     dublin_core = db.Column(JSONEncoded, nullable=True)
     extensions = db.Column(JSONEncoded, nullable=True)
+    citeStructure = db.Column(JSONEncoded, nullable=True)
 
     # One-to-one relationship with Navigation
     navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy=True)
@@ -91,7 +92,9 @@ class Collection(db.Model):
         }
         if self.description:
             data["description"] = self.description
-        if self.dublin_core:
+        if self.citeStructure:
+            data["citeStructure"] = self.citeStructure
+        if self.dublin_core:  # ToDo: Fix the way it's presented to adapt to dts view
             data["dublinCore"] = self.dublin_core
         if self.extensions:
             data["extensions"] = self.extensions

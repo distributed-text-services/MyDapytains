@@ -38,6 +38,17 @@ class CitableStructure:
             return f"{self.match}[{self.use}='{ref}']"
         return f"{self.match}[{self.use}={ref}]"
 
+    def json(self):
+        out = {
+            "citeType": self.citeType,
+        }
+        if self.children:
+            out["citeStructure"] = [
+                child.json()
+                for child in self.children
+            ]
+        return out
+
 
 @dataclass
 class CitableUnit:
