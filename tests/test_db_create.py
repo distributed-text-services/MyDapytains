@@ -61,7 +61,13 @@ def test_navigation():
     }
     paths = {tree: generate_paths(ref) for tree, ref in refs.items()}
 
-    assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref=None, end=None, down=1) == ([
+    assert get_nav(
+        refs[doc.default_tree],
+        paths[doc.default_tree],
+        start_or_ref=None,
+        end=None,
+        down=1
+    ) == ([
         {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
         {'citeType': 'book', 'ref': 'Mark', "level": 1, "parent": None}
     ], None, None), "Check that base function works"
@@ -90,6 +96,7 @@ def test_navigation():
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke 1", down=1) == (
         [
+            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
             {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
             {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
             {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
@@ -100,6 +107,7 @@ def test_navigation():
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke", down=1) == (
         [
+            {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
             {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
         ],
         {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
