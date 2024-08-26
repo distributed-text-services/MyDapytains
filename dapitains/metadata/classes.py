@@ -33,7 +33,7 @@ class Collection:
     title: str
     description: Optional[str] = None
     dublin_core: List[DublinCore] = field(default_factory=list)
-    extension: List[Extension] = field(default_factory=list)
+    extensions: List[Extension] = field(default_factory=list)
     resource: bool = False
     filepath: Optional[str] = None
 
@@ -43,7 +43,7 @@ class Collection:
             "title": self.title,
             "description": self.description,
             "dublin_core": self.dublin_core,
-            "extension": self.extension,
+            "extension": self.extensions,
             "resource": self.resource,
             "filepath": self.filepath
         }

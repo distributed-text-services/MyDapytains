@@ -16,7 +16,7 @@ def test_ingestion():
             title='A collection', description=None,
             dublin_core=[
                 DublinCore(term='abstract', value='This is a perfect example of an absract.', language=None),
-                DublinCore(term='abstract', value='Et je peux traduire en français', language='fr')], extension=[],
+                DublinCore(term='abstract', value='Et je peux traduire en français', language='fr')], extensions=[],
             resource=False,
             filepath=None
         ),
@@ -29,7 +29,7 @@ def test_ingestion():
                 DublinCore(term='subject', value='History', language=None),
                 DublinCore(term='date', value='2023-08-24', language=None)
             ],
-            extension=[],
+            extensions=[],
             resource=False,
             filepath=None
         ),
@@ -41,7 +41,7 @@ def test_ingestion():
                 DublinCore(term='subject', value='World War II', language=None),
                 DublinCore(term='language', value='en', language=None)
             ],
-            extension=[], resource=True,
+            extensions=[], resource=True,
             filepath=os.path.abspath(f"{local_dir}/tei/multiple_tree.xml")
         ),
         "https://foo.bar/text": Collection(
@@ -51,7 +51,7 @@ def test_ingestion():
             dublin_core=[
                 DublinCore(term='title', value='A simple resource', language=None)
             ],
-            extension=[],
+            extensions=[],
             resource=True,
             filepath=os.path.abspath(f"{local_dir}/tei/base_tei.xml")
         )

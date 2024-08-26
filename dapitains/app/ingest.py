@@ -27,6 +27,8 @@ def store_single(catalog: Catalog, keys: Optional[Dict[str, int]]):
                     key: value.structure.json()
                     for key, value in doc.citeStructure.items()
                 }
+                coll_db.default_tree = doc.default_tree
+                db.session.add(coll_db)
         db.session.commit()
 
     for parent, child in catalog.relationships:
@@ -42,24 +44,3 @@ def store_catalog(*catalogs):
     keys = {}
     for catalog in catalogs:
         store_single(catalog, keys)
-
-
-if __name__ == "__main__":
-    import flask
-    import os
-    from dapitains.metadata.xml_parser import parse
-    app = flask.Flask(__name__)
-
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    db_path = os.path.join(basedir, 'app.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-    db.init_app(app)
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-
-        catalog, _  = parse("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
-
-        store_catalog(catalog)

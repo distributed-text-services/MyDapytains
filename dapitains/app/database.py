@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 try:
     from flask_sqlalchemy import SQLAlchemy
     from sqlalchemy.ext.mutable import MutableDict, Mutable
@@ -10,8 +12,6 @@ except ImportError:
 
 from typing import Optional, Dict, Any
 import dapitains.metadata.classes as abstracts
-from dapitains.metadata.xml_parser import Catalog
-from dapitains.tei.document import Document
 import json
 
 
@@ -59,6 +59,7 @@ class Collection(db.Model):
     dublin_core = db.Column(JSONEncoded, nullable=True)
     extensions = db.Column(JSONEncoded, nullable=True)
     citeStructure = db.Column(JSONEncoded, nullable=True)
+    default_tree = db.Column(db.String, nullable=True)
 
     # One-to-one relationship with Navigation
     navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy=True)
@@ -92,8 +93,16 @@ class Collection(db.Model):
         }
         if self.description:
             data["description"] = self.description
+        if self.resource:
+            data["citationTrees"] = []
         if self.citeStructure:
-            data["citeStructure"] = self.citeStructure
+            data["citationTrees"] = [self.citeStructure[self.default_tree]]
+            if len(self.citeStructure) >= 1:
+                data["citationTrees"][0]["identifier"] = self.default_tree
+                for key in self.citeStructure:
+                    if key != self.default_tree:
+                        data["citationTrees"].append(self.citeStructure[key])
+                        self.citeStructure[key]["identifier"] = key
         if self.dublin_core:  # ToDo: Fix the way it's presented to adapt to dts view
             data["dublinCore"] = self.dublin_core
         if self.extensions:
@@ -103,16 +112,32 @@ class Collection(db.Model):
 
     @classmethod
     def from_class(cls, obj: abstracts.Collection) -> "Collection":
-        return cls(
+        dublin_core = defaultdict(list)
+        for dublin in obj.dublin_core:
+            if dublin.language:
+                dublin_core[dublin.term].append({"lang": dublin.language, "value": dublin.value})
+            else:
+                dublin_core[dublin.term].append(dublin.value)
+
+        extensions = defaultdict(list)
+        for exte in obj.extensions:
+            if exte.language:
+                extensions[exte.term].append({"lang": exte.language, "value": exte.value})
+            else:
+                extensions[exte.term].append(exte.value)
+
+
+        obj = cls(
             identifier=obj.identifier,
             title=obj.title,
             description=obj.description,
             resource=obj.resource,
             filepath=obj.filepath,
             # We are dumping because it's not read or accessible
-            dublin_core=[dub.json() for dub in obj.dublin_core],
-            extensions=[ext.json() for ext in obj.extension]
+            dublin_core=dublin_core,  #[dub.json() for dub in obj.dublin_core],
+            extensions=extensions,  # [ext.json() for ext in obj.extension]
         )
+        return obj
 
 
 class Navigation(db.Model):
@@ -120,7 +145,6 @@ class Navigation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, nullable=False)
     collection_id = db.Column(db.Integer, db.ForeignKey('collections.id'), nullable=False, unique=True)
-    # default_tree = db.Column(db.String, nullable=True)
 
     # JSON fields stored as TEXT
     paths = db.Column(JSONEncoded, nullable=False, default={})
