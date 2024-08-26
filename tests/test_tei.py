@@ -1,7 +1,7 @@
 import os.path
 
 import pytest
-from dapitains.tei.tei import Document
+from dapitains.tei.document import Document
 from lxml.etree import tostring
 
 local_dir = os.path.join(os.path.dirname(__file__), "tei")

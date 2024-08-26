@@ -38,6 +38,17 @@ class CitableStructure:
             return f"{self.match}[{self.use}='{ref}']"
         return f"{self.match}[{self.use}={ref}]"
 
+    def json(self):
+        out = {
+            "citeType": self.citeType,
+        }
+        if self.children:
+            out["citeStructure"] = [
+                child.json()
+                for child in self.children
+            ]
+        return out
+
 
 @dataclass
 class CitableUnit:
@@ -47,15 +58,19 @@ class CitableUnit:
     node: Optional[saxonlib.PyXdmNode] = None
     dublinCore: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     extension: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
+    level: int = 1
+    parent: Optional[str] = None
 
-    def to_dts(self):
+    def json(self):
         out = {
             "citeType": self.citeType,
-            "ref": self.ref
+            "ref": self.ref,
+            "level": self.level,
+            "parent": self.parent
         }
         if self.children:
             out["members"] = [
-                member.to_dts()
+                member.json()
                 for member in self.children
             ]
         if self.dublinCore:
@@ -87,7 +102,7 @@ class CiteStructureParser:
         self.regex_pattern, cite_structure = self.build_regex_and_xpath(
             get_xpath_proc(self.root).evaluate_single("./citeStructure[1]")
         )
-        self.units: CitableStructure = cite_structure
+        self.structure: CitableStructure = cite_structure
 
     def build_regex_and_xpath(
             self,
@@ -189,26 +204,30 @@ class CiteStructureParser:
             child_xpath: str,
             structure: CitableStructure,
             xpath_processor: saxonlib.PyXPathProcessor,
-            unit: CitableUnit):
+            unit: CitableUnit,
+            level: int):
         # target = self.generate_xpath(child.ref)
         if len(structure.children) == 1:
             self.find_refs(
                 root=xpath_processor.evaluate_single(child_xpath),
                 structure=structure.children[0],
-                unit=unit
+                unit=unit,
+                level=level
             )
         else:
             self.find_refs_from_branches(
                 root=xpath_processor.evaluate_single(child_xpath),
                 structure=structure.children,
-                unit=unit
+                unit=unit,
+                level=level
             )
 
     def find_refs(
             self,
             root: saxonlib.PyXdmNode,
             structure: CitableStructure = None,
-            unit: Optional[CitableUnit] = None
+            unit: Optional[CitableUnit] = None,
+            level: int = 1
     ) -> List[CitableUnit]:
         xpath_proc = get_xpath_proc(elem=root)
         prefix = (unit.ref + structure.delim) if unit else ""
@@ -218,7 +237,9 @@ class CiteStructureParser:
         for value in xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}"):
             child = CitableUnit(
                 citeType=structure.citeType,
-                ref=f"{prefix}{value.string_value}"
+                ref=f"{prefix}{value.string_value}",
+                parent=unit.ref if unit else None,
+                level=level
             )
 
             if structure.metadata:
@@ -238,7 +259,8 @@ class CiteStructureParser:
                     child_xpath=self.generate_xpath(child.ref),
                     structure=structure,
                     xpath_processor=xpath_proc,
-                    unit=child
+                    unit=child,
+                    level=level+1
                 )
         return units
 
@@ -246,7 +268,8 @@ class CiteStructureParser:
             self,
             root: saxonlib.PyXdmNode,
             structure: List[CitableStructure],
-            unit: Optional[CitableUnit] = None
+            unit: Optional[CitableUnit] = None,
+            level: int = 1
     ) -> List[CitableUnit]:
         xpath_proc = get_xpath_proc(elem=root)
         prefix = (unit.ref) if unit else ""  # ToDo: Reinject delim
@@ -281,7 +304,9 @@ class CiteStructureParser:
         for elem in unsorted:
             child_unit = CitableUnit(
                 citeType=elem.struct.citeType,
-                ref=elem.citation
+                ref=elem.citation,
+                level=level,
+                parent=unit.ref if unit else None
             )
 
             if unit:
@@ -294,7 +319,8 @@ class CiteStructureParser:
                     child_xpath=self.generate_xpath(child_unit.ref),
                     structure=elem.struct,
                     xpath_processor=xpath_proc,
-                    unit=child_unit
+                    unit=child_unit,
+                    level=level+1
                 )
         return units
 
