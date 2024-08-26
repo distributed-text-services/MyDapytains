@@ -1,8 +1,6 @@
 from typing import Dict, Any, Optional
 
-from sqlalchemy.orm.collections import collection
-
-from tests.test_db_create import test_navigation
+from dapitains.tei.document import Document
 
 try:
     import uritemplate
@@ -14,7 +12,7 @@ except ImportError:
     raise
 
 import json
-
+import lxml.etree as ET
 from dapitains.app.database import db, Collection, Navigation
 from dapitains.app.navigation import get_nav
 
@@ -81,6 +79,51 @@ def collection_view(
     }), mimetype="application/json", status=200)
 
 
+def document_view(resource, ref, start, end, tree) -> Response:
+    if not resource:
+        return msg_4xx("Resource parameter was not provided")
+
+    collection: Collection = Collection.query.where(Collection.identifier == resource).first()
+    if not collection:
+        return msg_4xx(f"Unknown resource `{resource}`")
+
+    nav: Navigation = Navigation.query.where(Navigation.collection_id == collection.id).first()
+    if nav is None:
+        return msg_4xx(f"The resource `{resource}` does not support navigation")
+
+    tree = tree or collection.default_tree
+
+    # Check for forbidden combinations
+    if ref or start or end:
+        if tree not in nav.references:
+            return msg_4xx(f"Unknown tree {tree} for resource `{resource}`")
+        elif ref and (start or end):
+            return msg_4xx(f"You cannot provide a ref parameter as well as start or end", code=400)
+        elif not ref and ((start and not end) or (end and not start)):
+            return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
+
+    paths = nav.paths[tree]
+    if start and end and (start not in paths or end not in paths):
+        return msg_4xx(f"Unknown reference {start} or {end} in the requested tree.", code=404)
+    if ref and ref not in paths:
+        return msg_4xx(f"Unknown reference {ref} in the requested tree.", code=404)
+
+    if not ref and not start:
+        with open(collection.filepath) as f:
+            content = f.read()
+        return Response(content, mimetype="application/xml")
+
+    doc = Document(collection.filepath)
+    return Response(
+        ET.tostring(doc.get_passage(
+            ref_or_start=ref or start,
+            end=end,
+            tree=tree
+        ), encoding=str),
+        mimetype="application/xml"
+    )
+
+
 def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, str]) -> Response:
     if not resource:
         return msg_4xx("Resource parameter was not provided")
@@ -92,6 +135,8 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
     nav: Navigation = Navigation.query.where(Navigation.collection_id == collection.id).first()
     if nav is None:
         return msg_4xx(f"The resource `{resource}` does not support navigation")
+
+    tree = tree or collection.default_tree
 
     # Check for forbidden combinations
     if ref or start or end:
@@ -120,15 +165,31 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
 
 def create_app(
         app: Flask,
+        base_uri: str,
         use_query: bool = False
 ) -> (Flask, SQLAlchemy):
     """
 
     Initialisation of the DB is up to you
     """
-    navigation_template = uritemplate.URITemplate("/navigation/{?resource}{&ref,start,end,tree,down}")
-    collection_template = uritemplate.URITemplate("/collection/collection/{?id,nav}")
-    document_template = uritemplate.URITemplate("/document/{?resource}{&ref,start,end,tree}")
+    navigation_template = uritemplate.URITemplate(base_uri+"/navigation/{?resource}{&ref,start,end,tree,down}")
+    collection_template = uritemplate.URITemplate(base_uri+"/collection/{?id,nav}")
+    document_template = uritemplate.URITemplate(base_uri+"/document/{?resource}{&ref,start,end,tree}")
+
+    @app.route("/")
+    def index_route():
+        return Response(
+            json.dumps({
+                "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
+                "dtsVersion": "1-alpha",
+                "@id": f"{request.url_root}{request.path}",
+                "@type": "EntryPoint",
+                "collection": collection_template.uri,
+                "navigation" : navigation_template.uri,
+                "document": document_template.uri
+            }),
+            mimetype="application/json"
+        )
 
     @app.route("/collection/")
     def collection_route():
@@ -156,6 +217,15 @@ def create_app(
             "document": document_template.partial({"resource": resource}).uri,
         })
 
+    @app.route("/document/")
+    def document_route():
+        resource = request.args.get("resource")
+        ref = request.args.get("ref")
+        start = request.args.get("start")
+        end = request.args.get("end")
+        tree = request.args.get("tree")
+        return document_view(resource, ref, start, end, tree)
+
     return app, db
 
 
@@ -165,7 +235,7 @@ if __name__ == "__main__":
     from dapitains.metadata.xml_parser import parse
 
     app = Flask(__name__)
-    _, db = create_app(app)
+    _, db = create_app(app, base_uri="http://localhost:5000")
 
     basedir = os.path.abspath(os.path.dirname(__file__))
     db_path = os.path.join(basedir, 'app.db')

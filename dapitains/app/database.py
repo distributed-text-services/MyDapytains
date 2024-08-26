@@ -126,7 +126,6 @@ class Collection(db.Model):
             else:
                 extensions[exte.term].append(exte.value)
 
-
         obj = cls(
             identifier=obj.identifier,
             title=obj.title,
