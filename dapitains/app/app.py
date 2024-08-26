@@ -1,7 +1,5 @@
 from typing import Dict, Any, Optional
 
-from dapitains.tei.document import Document
-
 try:
     import uritemplate
     from flask import Flask, request, Response
@@ -13,8 +11,10 @@ except ImportError:
 
 import json
 import lxml.etree as ET
+from dapitains.tei.document import Document
+from dapitains.errors import InvalidRangeOrder
 from dapitains.app.database import db, Collection, Navigation
-from dapitains.app.navigation import get_nav
+from dapitains.app.navigation import get_nav, get_member_by_path
 
 
 def msg_4xx(string, code=404) -> Response:
@@ -68,7 +68,7 @@ def collection_view(
                         **(
                             {
                                 "navigation": templates["navigation"].partial({"resource": related.identifier}).uri,
-                            } if coll.citeStructure else {}
+                            } if related.citeStructure else {}
                         )
                     ) if related.resource else related.json({
                         "collection": templates["collection"].partial({"id": related.identifier}).uri
@@ -124,7 +124,7 @@ def document_view(resource, ref, start, end, tree) -> Response:
     )
 
 
-def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, str]) -> Response:
+def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, uritemplate.URITemplate]) -> Response:
     if not resource:
         return msg_4xx("Resource parameter was not provided")
 
@@ -146,21 +146,51 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
             return msg_4xx(f"You cannot provide a ref parameter as well as start or end", code=400)
         elif not ref and ((start and not end) or (end and not start)):
             return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
-    else:
-        if down is None:
-            return msg_4xx(f"The down query parameter is required when requesting without ref or start/end", code=400)
 
-    refs = nav.references[tree]
-    paths = nav.paths[tree]
-    members, start, end = get_nav(refs=refs, paths=paths, start_or_ref=start or ref, end=end, down=down)
-    return Response(json.dumps({
+    # Start the response
+    out =  {
         "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
         "dtsVersion": "1-alpha",
         "@type": "Navigation",
-        "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
-        "resource": collection.json(inject=templates),  # To Do: implement and inject URI templates
-        "member": members
-    }), mimetype="application/json", status=200)
+        "@id": templates["navigation"].expand({
+            "ref": ref, "down": down, "start": start, "end": end, "tree": tree
+        }),
+        "resource": collection.json(inject={k:v.uri for k,v in templates.items()}),
+    }
+
+    refs = nav.references[tree]
+    paths = nav.paths[tree]
+
+    # Three first rows of the specs folr combination of down/ref/start/end
+    if down is None:
+        if ref:
+            out["ref"] = get_member_by_path(refs, paths[ref])
+        elif start and end:
+            out["start"] = get_member_by_path(refs, paths[start])
+            out["end"] = get_member_by_path(refs, paths[end])
+        else:
+            return msg_4xx(f"The down query parameter is required when requesting without ref or start/end", code=400)
+        return Response(json.dumps(out), mimetype="application/json", status=200)
+    elif down == 0 and start and end:
+        return msg_4xx(f"The down query parameter cannot be `0` while using start/end", code=400)
+    elif down == 0 and not ref:
+        return msg_4xx(f"The down query parameter cannot be `0` without using the `ref` parameter", code=400)
+
+    try:
+        members, start, end = get_nav(refs=refs, paths=paths, start_or_ref=start or ref, end=end, down=down)
+    except InvalidRangeOrder:
+        return msg_4xx("End reference comes before start in the document order. Interchange start and end.", code=400)
+    except Exception:
+        raise
+
+    out["member"] = members
+    if end:
+        out["start"] = start
+        out["end"] = end
+    else:
+        out["ref"] = start
+
+    return Response(json.dumps(out), mimetype="application/json", status=200)
 
 
 def create_app(
@@ -212,9 +242,9 @@ def create_app(
         down = request.args.get("down", type=int, default=None)
 
         return navigation_view(resource, ref, start, end, tree, down, templates={
-            "navigation": navigation_template.partial({"resource": resource}).uri,
-            "collection": collection_template.partial({"id": resource}).uri,
-            "document": document_template.partial({"resource": resource}).uri,
+            "navigation": navigation_template.partial({"resource": resource}),
+            "collection": collection_template.partial({"id": resource}),
+            "document": document_template.partial({"resource": resource}),
         })
 
     @app.route("/document/")

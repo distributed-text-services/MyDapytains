@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional, Tuple
+from dapitains.errors import InvalidRangeOrder
 
 
 def get_member_by_path(data: List[Dict[str, Any]], path: List[int]) -> Optional[Dict[str, Any]]:
@@ -76,22 +77,37 @@ def get_nav(
     """
 
     paths_index = list(paths.keys())
-    start_index, end_index = None, None
+    start_index, end_index = None, len(paths_index)
+
     if end:
-        end_index = paths_index.index(end) + 1
+        # For end, as end is inclusive, we check for the last partial match
+        #   (ie, if Mark is [1], we want everything starting
+        #   by [1].)
+        end_index = paths_index.index(end)
+        len_end = len(paths[end])
+        for idx, reference in enumerate(paths_index[end_index+1:]):
+            # print(paths[:len_end], paths[end])
+            if paths[reference][:len_end] == paths[end]:
+                end_index = end_index+idx
+            else:
+                break
+
     if start_or_ref:
         start_index = paths_index.index(start_or_ref)
         if not end:
-            for index, reference in enumerate(paths_index[start_index+1:]):
-                if len(paths[start_or_ref]) == len(paths[reference]):
-                    end_index = index + start_index + 1
+            if down == 0:
+                end_index = len(paths_index)
+            else:
+                for index, reference in enumerate(paths_index[start_index+1:]):
+                    if len(paths[start_or_ref]) == len(paths[reference]):
+                        end_index = index + start_index
+        if start_index > end_index:
+            raise InvalidRangeOrder
 
-    paths = dict(list(paths.items())[start_index:end_index])
+    paths = dict(list(paths.items())[start_index:end_index+1])
 
-    current_level = [0]
-
+    current_level = []
     start_path, end_path = None, None
-
     if start_or_ref:
         start_path = paths[start_or_ref]
         current_level.append(len(start_path))
@@ -99,15 +115,14 @@ def get_nav(
         end_path = paths[end]
         current_level.append(len(end_path))
 
-    current_level = max(current_level)
-
-    if down == -1:
-        down = max(list(map(len, paths.values())))
+    current_level = max(current_level) if current_level else 0
 
     if down == 0:
         paths = {key: value for key, value in paths.items() if len(value) == current_level}
+    elif down == -1:
+        paths = {key: value for key, value in paths.items() if current_level <= len(value)}
     else:
-        paths = {key: value for key, value in paths.items() if current_level < len(value) <= down + current_level}
+        paths = {key: value for key, value in paths.items() if current_level <= len(value) <= down + current_level}
 
     return (
         [
