@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from sqlalchemy.orm.collections import collection
 
@@ -18,11 +18,45 @@ import json
 from dapitains.app.database import db, Collection, Navigation
 from dapitains.app.ingest import get_nav
 
+
 def msg_4xx(string, code=404) -> Response:
     return Response(json.dumps({"message": string}), status=code, mimetype="application/json")
 
 
-def navigation_view(resource, ref, start, end, tree, down, templates):
+def collection_view(identifier: Optional[str], nav: str, templates: Dict[str, str]) -> Response:
+    if not identifier:
+        coll: Collection = db.session.query(Collection).filter(~Collection.parents.any()).first()
+    else:
+        coll = Collection.query.where(Collection.identifier==identifier).first()
+    if coll is None:
+        return msg_4xx("Unknown collection")
+    out = coll.json()
+
+    if nav == 'children':
+        related_collections = db.session.query(Collection).filter(
+            Collection.parents.any(id=coll.id)
+        ).all()
+    elif nav == 'parents':
+        related_collections = db.session.query(Collection).filter(
+            Collection.children.any(id=coll.id)
+        ).all()
+    else:
+        return msg_4xx(f"nav parameter has a wrong value {nav}", code=400)
+
+    return Response(json.dumps({
+        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
+        "dtsVersion": "1-alpha",
+        **out,
+        "totalParents": coll.total_parents,
+        "totalChildren": coll.total_children,
+        "member": [
+            related.json()
+            for related in related_collections
+        ]
+    }), mimetype="application/json", status=200)
+
+
+def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, str]) -> Response:
     if not resource:
         return msg_4xx("Resource parameter was not provided")
 
@@ -49,29 +83,38 @@ def navigation_view(resource, ref, start, end, tree, down, templates):
     refs = nav.references[tree]
     paths = nav.paths[tree]
     members, start, end = get_nav(refs=refs, paths=paths, start_or_ref=start or ref, end=end, down=down)
-    print(templates)
-    return {
+    return Response(json.dumps({
         "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
         "dtsVersion": "1-alpha",
         "@type": "Navigation",
         "@id": "https://example.org/api/dts/navigation/?resource=https://en.wikisource.org/wiki/Dracula&down=1",
         "resource": collection.json(inject=templates),  # To Do: implement and inject URI templates
         "member": members
-    }
+    }), mimetype="application/json", status=200)
 
 
 def create_app(
         app: Flask,
-        use_query: bool = False,
-        # navigation_template: str = "/navigation?resource=https://en.wikisource.org/wiki/Dracula{&ref,down,start,end,tree,page}"
+        use_query: bool = False
 ) -> (Flask, SQLAlchemy):
     """
 
     Initialisation of the DB is up to you
     """
     navigation_template = uritemplate.URITemplate("/navigation/{?resource}{&ref,start,end,tree,down}")
-    collection_template = uritemplate.URITemplate("/navigation/collection/{?id,page,nav}")
+    collection_template = uritemplate.URITemplate("/navigation/collection/{?id,nav}")
     document_template = uritemplate.URITemplate("/document/{?resource}{&ref,start,end,tree}")
+
+    @app.route("/collection/")
+    def collection_route():
+        resource = request.args.get("id")
+        nav = request.args.get("nav")
+
+        return collection_view(resource, nav, templates={
+            "navigation": navigation_template.partial({"resource": resource}).uri,
+            "collection": collection_template.partial({"id": resource}).uri,
+            "document": document_template.partial({"resource": resource}).uri,
+        })
 
     @app.route("/navigation/")
     def navigation_route():
@@ -109,7 +152,7 @@ if __name__ == "__main__":
         db.drop_all()
         db.create_all()
 
-        catalog, _  = ingest_catalog("/home/thibault/dev/MyDapytains/tests/catalog/example-collection.xml")
+        catalog, _ = ingest_catalog(f"{basedir}/../../tests/catalog/example-collection.xml")
         store_catalog(catalog)
 
     app.run()

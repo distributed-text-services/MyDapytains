@@ -3,3 +3,4 @@ lxml
 flask
 flask-sqlalchemy
 click
+uritemplate

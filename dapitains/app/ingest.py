@@ -1,14 +1,18 @@
 from typing import Dict, List, Optional, Any, Tuple
-from dapitains.app.database import Collection, Navigation, db
+from dapitains.app.database import Collection, Navigation, db, parent_child_association
 from dapitains.metadata.xml_parser import Catalog
 from dapitains.tei.document import Document
 import copy
+import tqdm
+
 
 def store_catalog(catalog: Catalog):
-    for identifier, collection in catalog.objects.items():
+    keys = {}
+    for identifier, collection in tqdm.tqdm(catalog.objects.items(), desc="Parsing all collections"):
         coll_db = Collection.from_class(collection)
         db.session.add(coll_db)
         db.session.flush()
+        keys[coll_db.identifier] = coll_db.id
         if collection.resource:
             doc = Document(collection.filepath)
             references = {
@@ -17,9 +21,15 @@ def store_catalog(catalog: Catalog):
             }
             paths = {key: generate_paths(tree) for key, tree in references.items()}
             nav = Navigation(collection_id=coll_db.id, paths=paths, references=references)
-            print(nav.paths)
             db.session.add(nav)
         db.session.commit()
+
+    for parent, child in catalog.relationships:
+        insert_statement = parent_child_association.insert().values(
+            parent_id=keys[parent],
+            child_id=keys[child]
+        )
+        db.session.execute(insert_statement)
 
 
 

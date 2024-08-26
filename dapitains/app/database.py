@@ -2,6 +2,7 @@ try:
     from flask_sqlalchemy import SQLAlchemy
     from sqlalchemy.ext.mutable import MutableDict, Mutable
     from sqlalchemy.types import TypeDecorator, TEXT
+    from sqlalchemy import func
     import click
 except ImportError:
     print("This part of the package can only be imported with the web requirements.")
@@ -45,6 +46,7 @@ class JSONEncoded(TypeDecorator):
             return None
         return json.loads(value, cls=CustomKeyJSONDecoder)
 
+
 class Collection(db.Model):
     __tablename__ = 'collections'
 
@@ -60,7 +62,6 @@ class Collection(db.Model):
     # One-to-one relationship with Navigation
     navigation = db.relationship('Navigation', uselist=False, backref='collection', lazy=True)
 
-
     parents = db.relationship(
         'Collection',
         secondary=parent_child_association,
@@ -69,9 +70,22 @@ class Collection(db.Model):
         backref='children'
     )
 
+    @property
+    def total_children(self):
+        return db.session.query(func.count(parent_child_association.c.child_id)).filter(
+            parent_child_association.c.parent_id == self.id
+        ).scalar()
+
+    @property
+    def total_parents(self):
+        return db.session.query(func.count(parent_child_association.c.parent_id)).filter(
+            parent_child_association.c.child_id == self.id
+        ).scalar()
+
     def json(self, inject: Optional[Dict[str, Any]] = None):
         data = {
             "@type": "Resource" if self.resource else "Collection",
+            "@id": self.identifier,
             "title": self.title,
             **(inject or {})
         }
@@ -96,6 +110,7 @@ class Collection(db.Model):
             dublin_core=[dub.json() for dub in obj.dublin_core],
             extensions=[ext.json() for ext in obj.extension]
         )
+
 
 class Navigation(db.Model):
     __tablename__ = 'navigations'
