@@ -4,3 +4,4 @@ flask
 flask-sqlalchemy
 click
 uritemplate
+tqdm
