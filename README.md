@@ -14,6 +14,16 @@ This library will:
 - Provide a base implementation of the DTS API, using python as a server-side language
 - Provide some light "caching" features, to avoid reparsing document at query time.
 
+## ToDo
+
+- Support XSL transformation with mediaType dictionary for outputting different data
+- Add tests to webapp
+
+
+## WebApp
+
+You can try the webapp using `python -m dapitains.app.app`. It uses test files at the moment.
+
 ## Guidelines
 
 ### Document level guidelines
