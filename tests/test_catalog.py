@@ -1,6 +1,6 @@
 import os.path
 
-from dapitains.metadata.xml_parser import ingest_catalog
+from dapitains.metadata.xml_parser import parse
 from dapitains.metadata.classes import *
 
 
@@ -8,7 +8,7 @@ local_dir = os.path.join(os.path.dirname(__file__))
 
 
 def test_ingestion():
-    tree, _ = ingest_catalog(f"{local_dir}/catalog/example-collection.xml")
+    tree, _ = parse(f"{local_dir}/catalog/example-collection.xml")
 
     assert tree.objects == {
         "https://foo.bar/default": Collection(

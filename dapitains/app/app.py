@@ -16,7 +16,7 @@ except ImportError:
 import json
 
 from dapitains.app.database import db, Collection, Navigation
-from dapitains.app.ingest import get_nav
+from dapitains.app.navigation import get_nav
 
 
 def msg_4xx(string, code=404) -> Response:
@@ -162,7 +162,7 @@ def create_app(
 if __name__ == "__main__":
     import os
     from dapitains.app.ingest import store_catalog
-    from dapitains.metadata.xml_parser import ingest_catalog
+    from dapitains.metadata.xml_parser import parse
 
     app = Flask(__name__)
     _, db = create_app(app)
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         db.drop_all()
         db.create_all()
 
-        catalog, _ = ingest_catalog(f"{basedir}/../../tests/catalog/example-collection.xml")
+        catalog, _ = parse(f"{basedir}/../../tests/catalog/example-collection.xml")
         store_catalog(catalog)
 
     app.run()

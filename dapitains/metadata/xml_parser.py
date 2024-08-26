@@ -6,6 +6,9 @@ import lxml.etree as ET
 from dapitains.metadata.classes import DublinCore, Extension, Collection
 
 
+__all__ = ["Catalog", "parse"]
+
+
 _re_tag = re.compile(r"[{}]")
 
 
@@ -15,7 +18,7 @@ class Catalog:
     objects: Dict[str, Collection] = field(default_factory=dict)
 
 
-def parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
+def _parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
     """ Parse Metadata
 
     :param xml: Collection/Resource tag
@@ -54,14 +57,14 @@ def parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
     return obj, parents
 
 
-def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection:
+def _parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection:
     """ Parse a Collection or Resource object
 
     :param xml: Parsed Collection or Resource by LXML
     :param basedir: Directory used to resolve filepath, that are relative to the main object
     :param tree: Catalog that is updated with objects.
     """
-    obj, parents = parse_metadata(xml)
+    obj, parents = _parse_metadata(xml)
     obj = Collection(**obj, resource=xml.tag == "resource")
     for parent in parents:
         tree.relationships.append((parent, obj.identifier))
@@ -70,28 +73,26 @@ def parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection
         obj.filepath = os.path.normpath(os.path.join(basedir, xml.attrib["filepath"]))
     for member in xml.xpath("./members/*"):
         if member.xpath("./title"):
-            child = parse_collection(member, basedir, tree)
+            child = _parse_collection(member, basedir, tree)
             tree.relationships.append((obj.identifier, child.identifier))
         else:
-            _, child = ingest_catalog(os.path.join(basedir, member.attrib["filepath"]), tree)
+            _, child = parse(os.path.join(basedir, member.attrib["filepath"]), tree)
             tree.relationships.append((obj.identifier, child.identifier))
     return obj
 
 
-def ingest_catalog(path: str, tree: Optional[Catalog] = None) -> Tuple[Catalog, Collection]:
+def parse(path: str, tree: Optional[Catalog] = None) -> Tuple[Catalog, Collection]:
     """ Ingest a collection description file.
 
     :param path: Path to a Collection XML File, see the schema at tests/catalog/schema.rng
     :param tree: Current catalog, which is either updated or created
     :return: Catalog and root collection found at path.
 
-    >>> ingest_catalog("../../tests/catalog/example-collection.xml")
     """
     xml = ET.parse(path)
     current_dir = os.path.abspath(os.path.dirname(path))
 
     root: ET.Element = xml.getroot()
     tree = tree or Catalog()
-    root_collection = parse_collection(root, basedir=current_dir, tree=tree)
+    root_collection = _parse_collection(root, basedir=current_dir, tree=tree)
     return tree, root_collection
-
