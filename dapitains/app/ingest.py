@@ -30,6 +30,7 @@ def store_catalog(catalog: Catalog):
             child_id=keys[child]
         )
         db.session.execute(insert_statement)
+    db.session.commit()
 
 
 

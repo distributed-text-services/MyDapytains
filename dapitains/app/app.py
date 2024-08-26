@@ -23,7 +23,17 @@ def msg_4xx(string, code=404) -> Response:
     return Response(json.dumps({"message": string}), status=code, mimetype="application/json")
 
 
-def collection_view(identifier: Optional[str], nav: str, templates: Dict[str, str]) -> Response:
+def collection_view(
+        identifier: Optional[str],
+        nav: str,
+        templates: Dict[str, uritemplate.URITemplate]
+) -> Response:
+    """ Builds a collection view, regardless of how the parameters are received
+
+    :param identifier:
+    :param nav:
+    :param templates:
+    """
     if not identifier:
         coll: Collection = db.session.query(Collection).filter(~Collection.parents.any()).first()
     else:
@@ -49,8 +59,22 @@ def collection_view(identifier: Optional[str], nav: str, templates: Dict[str, st
         **out,
         "totalParents": coll.total_parents,
         "totalChildren": coll.total_children,
+        "collection": templates["collection"].uri,
         "member": [
-            related.json()
+            (
+                related.json(inject=(**{
+                    "collection": templates["collection"].partial({"id": related.identifier}).uri,
+                    "document": templates["collection"].partial({"id": related.identifier}).uri,
+                }, **(
+        {
+                    "navigation": templates["collection"].partial(
+                                                             {"id": related.identifier}).uri,
+                                                     } if hasattr(coll, "citeStructure") else {}))
+                if related.resource
+                else related.json({
+                    "collection": templates["collection"].partial({"id": related.identifier}).uri
+                })
+            )
             for related in related_collections
         ]
     }), mimetype="application/json", status=200)
@@ -108,12 +132,12 @@ def create_app(
     @app.route("/collection/")
     def collection_route():
         resource = request.args.get("id")
-        nav = request.args.get("nav")
+        nav = request.args.get("nav", "children")
 
         return collection_view(resource, nav, templates={
-            "navigation": navigation_template.partial({"resource": resource}).uri,
-            "collection": collection_template.partial({"id": resource}).uri,
-            "document": document_template.partial({"resource": resource}).uri,
+            "navigation": navigation_template,
+            "collection": collection_template,
+            "document": document_template,
         })
 
     @app.route("/navigation/")
