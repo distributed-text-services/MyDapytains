@@ -17,14 +17,14 @@ def store_catalog(catalog: Catalog):
             doc = Document(collection.filepath)
             if doc.citeStructure:
                 references = {
-                    tree: [ref.json() for ref in obj.find_refs(doc.xml, structure=obj.units)]
+                    tree: [ref.json() for ref in obj.find_refs(doc.xml, structure=obj.structure)]
                     for tree, obj in doc.citeStructure.items()
                 }
                 paths = {key: generate_paths(tree) for key, tree in references.items()}
                 nav = Navigation(collection_id=coll_db.id, paths=paths, references=references)
                 db.session.add(nav)
                 coll_db.citeStructure = {
-                    key: value.units.json()
+                    key: value.structure.json()
                     for key, value in doc.citeStructure.items()
                 }
         db.session.commit()

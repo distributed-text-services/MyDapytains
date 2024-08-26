@@ -58,7 +58,7 @@ def test_parsing():
     # Generate XPath for "Luke 1" (partial match)
     assert parser.generate_xpath("Luke") == "//body/div[@n='Luke']"
 
-    assert [root.json() for root in parser.find_refs(root=TEI, structure=parser.units)] == [
+    assert [root.json() for root in parser.find_refs(root=TEI, structure=parser.structure)] == [
         {'citeType': 'book', 'ref': 'Luke', 'parent': None, 'level': 1, 'members': [
             {'citeType': 'chapter', 'ref': 'Luke 1', 'parent': 'Luke', 'level': 2,  'members': [
                 {'citeType': 'verse', 'ref': 'Luke 1:1', 'parent': 'Luke 1', 'level': 3},
@@ -82,7 +82,7 @@ def test_cite_data():
     xpath = get_xpath_proc(elem=TEI)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
     parser = CiteStructureParser(citeStructure)
-    refs = parser.find_refs(root=TEI, structure=parser.units)
+    refs = parser.find_refs(root=TEI, structure=parser.structure)
     refs = [ref.json() for ref in refs]
     assert refs == [
         {'citeType': 'book', 'ref': '1', 'parent': None, 'level': 1, 'dublinCore': {
@@ -106,7 +106,7 @@ def test_advanced_cite_data():
     xpath = get_xpath_proc(elem=TEI)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/refsDecl[1]")
     parser = CiteStructureParser(citeStructure)
-    refs = parser.find_refs(root=TEI, structure=parser.units)
+    refs = parser.find_refs(root=TEI, structure=parser.structure)
     refs = [ref.json() for ref in refs]
     assert refs == [
         {'citeType': 'part', 'ref': 'part-1', 'parent': None, 'level': 1, 'members': [

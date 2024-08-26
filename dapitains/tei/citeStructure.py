@@ -102,7 +102,7 @@ class CiteStructureParser:
         self.regex_pattern, cite_structure = self.build_regex_and_xpath(
             get_xpath_proc(self.root).evaluate_single("./citeStructure[1]")
         )
-        self.units: CitableStructure = cite_structure
+        self.structure: CitableStructure = cite_structure
 
     def build_regex_and_xpath(
             self,

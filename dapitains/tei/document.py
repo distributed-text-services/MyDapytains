@@ -231,13 +231,17 @@ class Document:
         self.xml = PROCESSOR.parse_xml(xml_file_name=file_path)
         self.xpath_processor = get_xpath_proc(elem=self.xml)
         self.citeStructure: Dict[Optional[str], CiteStructureParser] = {}
+
+        default = None
         for refsDecl in self.xpath_processor.evaluate("/TEI/teiHeader/refsDecl[./citeStructure]"):
             struct = CiteStructureParser(refsDecl)
 
-            self.citeStructure[refsDecl.get_attribute_value("n")] = struct
+            self.citeStructure[refsDecl.get_attribute_value("n") or "default"] = struct
 
-            if refsDecl.get_attribute_value("default") == "true":
-                self.citeStructure[None] = struct
+            if refsDecl.get_attribute_value("default") == "true" or default is None:
+                default = refsDecl.get_attribute_value("n") or "default"
+
+        self.default_tree: str = default
 
     def get_passage(self, ref_or_start: Optional[str], end: Optional[str] = None, tree: Optional[str] = None) -> Element:
         """ Retrieve a given passage from the document
@@ -255,6 +259,7 @@ class Document:
         else:
             raise ValueError("Start/End or Ref are necessary to get a passage")
 
+        tree = tree or self.default_tree
         try:
             start = self.citeStructure[tree].generate_xpath(start)
         except KeyError:
@@ -278,3 +283,7 @@ class Document:
         )
         objectify.deannotate(root, cleanup_namespaces=True)
         return root
+
+    def get_reffs(self, tree: Optional[str] = None):
+        tree = self.citeStructure[tree or self.default_tree]
+        return tree.find_refs(root=self.xml, structure=tree.structure)
