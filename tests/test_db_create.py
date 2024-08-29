@@ -47,10 +47,10 @@ def test_simple_path():
     }
     assert strip_members(
         get_member_by_path(refs[doc.default_tree], paths[doc.default_tree]["Luke"])
-    ) == {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None}, "Check that members are stripped"
+    ) == {'citeType': 'book', 'identifier': 'Luke', "level": 1, "parent": None}, "Check that members are stripped"
     assert get_member_by_path(
         refs[doc.default_tree], paths[doc.default_tree]["Mark 1:3"]
-    ) == {'citeType': 'verse', 'ref': 'Mark 1:3', "level": 3, "parent": "Mark 1"}
+    ) == {'citeType': 'verse', 'identifier': 'Mark 1:3', "level": 3, "parent": "Mark 1"}
 
 
 def test_navigation():
@@ -68,58 +68,58 @@ def test_navigation():
         end=None,
         down=1
     ) == ([
-        {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
-        {'citeType': 'book', 'ref': 'Mark', "level": 1, "parent": None}
+        {'citeType': 'book', 'identifier': 'Luke', "level": 1, "parent": None},
+        {'citeType': 'book', 'identifier': 'Mark', "level": 1, "parent": None}
     ], None, None), "Check that base function works"
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke 1:1", end="Luke 1#1", down=0) == (
         [
-            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+            {'citeType': 'verse', 'identifier': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'identifier': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'identifier': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
         ],
-        {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
-        {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+        {'citeType': 'verse', 'identifier': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+        {'citeType': 'bloup', 'identifier': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
     ), "Check that ?start/end works"
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke 1:1", end="Mark 1:2", down=0) == (
         [
-            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'verse', 'ref': 'Mark 1:1', "level": 3, "parent": "Mark 1"},
-            {'citeType': 'verse', 'ref': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
+            {'citeType': 'verse', 'identifier': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'identifier': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'identifier': 'Luke 1#1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'identifier': 'Mark 1:1', "level": 3, "parent": "Mark 1"},
+            {'citeType': 'verse', 'identifier': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
         ],
-        {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
-        {'citeType': 'verse', 'ref': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
+        {'citeType': 'verse', 'identifier': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+        {'citeType': 'verse', 'identifier': 'Mark 1:2', "level": 3, "parent": "Mark 1"}
     ), "Check that ?start/end works across parents"
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke 1", down=1) == (
         [
-            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
-            {'citeType': 'verse', 'ref': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'verse', 'ref': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
-            {'citeType': 'bloup', 'ref': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
+            {'citeType': 'chapter', 'identifier': 'Luke 1', "level": 2, "parent": "Luke"},
+            {'citeType': 'verse', 'identifier': 'Luke 1:1', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'verse', 'identifier': 'Luke 1:2', "level": 3, "parent": "Luke 1"},
+            {'citeType': 'bloup', 'identifier': 'Luke 1#1', "level": 3, "parent": "Luke 1"}
         ],
-        {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
+        {'citeType': 'chapter', 'identifier': 'Luke 1', "level": 2, "parent": "Luke"},
         None
     ), "Check that ?ref works"
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref="Luke", down=1) == (
         [
-            {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
-            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
+            {'citeType': 'book', 'identifier': 'Luke', "level": 1, "parent": None},
+            {'citeType': 'chapter', 'identifier': 'Luke 1', "level": 2, "parent": "Luke"},
         ],
-        {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
+        {'citeType': 'book', 'identifier': 'Luke', "level": 1, "parent": None},
         None
     ), "Check that ?ref works"
 
     assert get_nav(refs[doc.default_tree], paths[doc.default_tree], start_or_ref=None, end=None, down=2) == (
         [
-            {'citeType': 'book', 'ref': 'Luke', "level": 1, "parent": None},
-            {'citeType': 'chapter', 'ref': 'Luke 1', "level": 2, "parent": "Luke"},
-            {'citeType': 'book', 'ref': 'Mark', "level": 1, "parent": None},
-            {'citeType': 'chapter', 'ref': 'Mark 1', "level": 2, "parent": "Mark"}
+            {'citeType': 'book', 'identifier': 'Luke', "level": 1, "parent": None},
+            {'citeType': 'chapter', 'identifier': 'Luke 1', "level": 2, "parent": "Luke"},
+            {'citeType': 'book', 'identifier': 'Mark', "level": 1, "parent": None},
+            {'citeType': 'chapter', 'identifier': 'Mark 1', "level": 2, "parent": "Mark"}
         ],
         None,
         None

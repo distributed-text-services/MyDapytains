@@ -51,7 +51,7 @@ def generate_paths(data: List[Dict[str, Any]], path: Optional[List[int]] = None)
 
     def recurse(items, current_path):
         for index, item in enumerate(items):
-            ref = item.get('ref')
+            ref = item.get('identifier')
             if ref:
                 # Record the path for the current reference
                 paths[ref] = current_path + [index]

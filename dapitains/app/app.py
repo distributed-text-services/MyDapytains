@@ -51,6 +51,24 @@ def collection_view(
     else:
         return msg_4xx(f"nav parameter has a wrong value {nav}", code=400)
 
+    def inject_json(related: Collection) -> Dict:
+        if related.resource:
+            inj = {
+                "collection": templates["collection"].partial({"id": related.identifier}).uri,
+                "document": templates["document"].partial({"resource": related.identifier}).uri,
+            }
+            if related.citeStructure:
+                inj["navigation"] = templates["navigation"].partial({"resource": related.identifier}).uri
+        else:
+            inj ={"collection": templates["collection"].partial({"id": related.identifier}).uri}
+
+        inj.update({
+            "totalParents": coll.total_parents,
+            "totalChildren": coll.total_children
+        })
+
+        return inj
+
     return Response(json.dumps({
         "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
         "dtsVersion": "1-alpha",
@@ -60,23 +78,11 @@ def collection_view(
         "collection": templates["collection"].uri,
         "member": [
                 related.json(
-                    inject=dict(
-                        **{
-                            "collection": templates["collection"].partial({"id": related.identifier}).uri,
-                            "document": templates["document"].partial({"resource": related.identifier}).uri,
-                        },
-                        **(
-                            {
-                                "navigation": templates["navigation"].partial({"resource": related.identifier}).uri,
-                            } if related.citeStructure else {}
-                        )
-                    ) if related.resource else related.json({
-                        "collection": templates["collection"].partial({"id": related.identifier}).uri
-                    })
+                    inject=inject_json(related)
                 )
                 for related in related_collections
             ]
-    }), mimetype="application/json", status=200)
+    }), mimetype="application/ld+json", status=200)
 
 
 def document_view(resource, ref, start, end, tree) -> Response:
@@ -148,7 +154,7 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
             return msg_4xx(f"Range is missing one of its parameters (start or end)", code=400)
 
     # Start the response
-    out =  {
+    out = {
         "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
         "dtsVersion": "1-alpha",
         "@type": "Navigation",
@@ -190,7 +196,7 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
     else:
         out["ref"] = start
 
-    return Response(json.dumps(out), mimetype="application/json", status=200)
+    return Response(json.dumps(out), mimetype="application/ld+json", status=200)
 
 
 def create_app(
@@ -218,7 +224,7 @@ def create_app(
                 "navigation" : navigation_template.uri,
                 "document": document_template.uri
             }),
-            mimetype="application/json"
+            mimetype="application/ld+json"
         )
 
     @app.route("/collection/")

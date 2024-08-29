@@ -103,6 +103,8 @@ class Collection(db.Model):
                     if key != self.default_tree:
                         data["citationTrees"].append(self.citeStructure[key])
                         self.citeStructure[key]["identifier"] = key
+            for tree in data["citationTrees"]:
+                tree["@type"] = "CitationTree"
         if self.dublin_core:  # ToDo: Fix the way it's presented to adapt to dts view
             data["dublinCore"] = self.dublin_core
         if self.extensions:

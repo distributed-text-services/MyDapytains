@@ -64,7 +64,7 @@ class CitableUnit:
     def json(self):
         out = {
             "citeType": self.citeType,
-            "ref": self.ref,
+            "identifier": self.ref,
             "level": self.level,
             "parent": self.parent
         }
