@@ -1,4 +1,4 @@
-from dapitains.tei.citeStructure import CiteStructureParser
+from dapitains.tei.citeStructure import CiteStructureParser, CitableUnit
 from dapitains.constants import PROCESSOR, get_xpath_proc, saxonlib
 from typing import Optional, List, Tuple, Dict
 from lxml.etree import fromstring
@@ -86,7 +86,7 @@ def copy_node(node: saxonlib.PyXdmNode, include_children=False, parent: Optional
         return element
 
     attribs = {
-        attr.name: attr.string_value
+        attr.name.replace("Q{", "{"): attr.string_value  # Q{ => xml:id
         for attr in node.attributes
     }
     namespace, node_name = _namespace.match(node.name).groups()
@@ -126,7 +126,9 @@ def reconstruct_doc(
     root: saxonlib.PyXdmNode,
     start_xpath: List[str],
     new_tree: Optional[Element] = None,
-    end_xpath: Optional[List[str]] = None
+    end_xpath: Optional[List[str]] = None,
+    start_contains: bool = True,
+    end_contains: bool = True,
 ) -> Element:
     """ Loop over passages to construct and increment new tree given a parent and XPaths
 
@@ -213,8 +215,8 @@ def reconstruct_doc(
         # We look for siblings between start and end matches
         xpath = get_xpath_proc(root)
 
-        for sibling in xpath.evaluate(
-                f"./*[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]"):
+        for sibling in (xpath.evaluate(
+                f"./*[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]") or []):
             copy_node(sibling, include_children=True, parent=new_tree)
 
         # Here we reached the end, logically.
@@ -261,29 +263,59 @@ class Document:
 
         tree = tree or self.default_tree
         try:
-            start = self.citeStructure[tree].generate_xpath(start)
+            start_xpath = self.citeStructure[tree].generate_xpath(start)
         except KeyError:
             raise UnknownTreeName(tree)
 
         def xpath_split(string: str) -> List[str]:
             return [x for x in re.split(r"/(/?[^/]+)", string) if x]
 
-        start = normalize_xpath(xpath_split(start))
+        def check_contains(string: str) -> bool:
+            return self.xpath_processor.effective_boolean_value(f"{string}/node()")
+
+        start_contains = check_contains(start_xpath)
+        start_xpath = normalize_xpath(xpath_split(start_xpath))
+
         if end:
-            end = self.citeStructure[tree].generate_xpath(end)
-            end = normalize_xpath(xpath_split(end))
+            end_xpath = self.citeStructure[tree].generate_xpath(end)
+            end_contains = check_contains(end_xpath)
+            end_xpath = normalize_xpath(xpath_split(end_xpath))
+        elif not start_contains and not end:
+            end = self.get_next(tree, start).ref
+            end_xpath = self.citeStructure[tree].generate_xpath(end)
+            end_xpath = normalize_xpath(xpath_split(end_xpath))
+            end_contains = False
         else:
-            end = start
+            end_xpath = start
+            end_contains = start_contains
 
         root = reconstruct_doc(
             self.xml,
             new_tree=None,
-            start_xpath=start,
-            end_xpath=end
+            start_xpath=start_xpath,
+            start_contains=start_contains,
+            end_xpath=end_xpath,
+            end_contains=end_contains
         )
+        print(root, start_xpath, end_xpath)
         objectify.deannotate(root, cleanup_namespaces=True)
         return root
 
     def get_reffs(self, tree: Optional[str] = None):
         tree = self.citeStructure[tree or self.default_tree]
         return tree.find_refs(root=self.xml, structure=tree.structure)
+
+    def get_next(self, tree, unit) -> Optional[CitableUnit]:
+        refs = self.get_reffs(tree)
+        def _find(haystack, needle) -> Optional[Tuple[int, CitableUnit, List[CitableUnit]]]:
+            for idx, r in enumerate(haystack):
+                if r.ref == needle:
+                    return idx, r, haystack
+                else:
+                    if c := _find(r.children, unit):
+                        return c
+            return None
+        current_idx, current_unit, siblings = _find(refs, unit)
+        if current_idx < len(refs)-1:
+            return siblings[current_idx+1]
+        return None

@@ -234,7 +234,8 @@ class CiteStructureParser:
         units = []
         xpath_prefix = "./" if unit else ""
 
-        for value in xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}"):
+        # .evaluate returns None instead of an empty list...
+        for value in (xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}") or []):
             child = CitableUnit(
                 citeType=structure.citeType,
                 ref=f"{prefix}{value.string_value}",
