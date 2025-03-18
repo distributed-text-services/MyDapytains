@@ -85,13 +85,12 @@ def copy_node(
     :param node: Etree Node
     :param include_children: Copy children nodes if set to True
     :param parent: Append copied node to parent if given
-    :param tail: Include the tail
+    :param include_spaces: Include the tailing spaces
     :return: New Element
     """
     if include_children:
         # We simply go from the element as a string to an element as XML.
-        # If the element has children, it will add space because it's stupid...
-        # element = str(node)
+        # We need to workaround false indentation through this xQuery
         xq = PROCESSOR.new_xquery_processor()
         xq.set_context(xdm_item=node)
         element = xq.run_query_to_string(query_text=(
@@ -103,19 +102,35 @@ def copy_node(
             element = fromstring(element)
             if parent is not None:
                 parent.append(element)
+            # else:
+            #     print("WTF ?")
+            #     raise Exception
             return element
         elif parent is not None:
             if not parent.getchildren():
+                # if parent.text is None:
+                #     parent.text = ""
                 parent.text += element
             else:
                 parent.getchildren()[-1].tail = element
-            return
+            return parent
+        # else:
+        #     print("MISSED ?", node, str(node), node.get_parent())
+        #     raise
+    # elif node.node_kind_str == "text":
+    #     print("STR", node.string_value)
 
     attribs = {
         attr.name.replace("Q{", "{"): attr.string_value  # Q{ => xml:id
         for attr in node.attributes
     }
+    # try:
     namespace, node_name = _namespace.match(node.name).groups()
+    # except:
+    #
+    #     print("EXCEPTION", type(node), node.node_kind_str)
+    #     raise
+
     kwargs = dict(
         _tag=node_name,
         nsmap={None: namespace},
@@ -133,7 +148,6 @@ def copy_node(
         element = SubElement(parent, **kwargs)
         if include_spaces:
             element._setText(include_spaces)
-
     else:
         element = Element(**kwargs)
 
@@ -201,7 +215,7 @@ def reconstruct_doc(
 
     # Here, we start by comparing both XPath, in case we have a single XPath
     current_1_is_current_2 = start_xpath == end_xpath
-    # If they don't match, maybe an XPath comparison of both items will tell use more
+    # If they don't match, maybe an XPath comparison of both items will tell us more
     if not current_1_is_current_2:
         # If we don't, we do an XPath check
         current_1_is_current_2 = xproc.effective_boolean_value(f"head({current_start}) is head({current_end})")
@@ -236,8 +250,13 @@ def reconstruct_doc(
                 end_siblings=end_siblings
             )
         elif start_siblings:
-            for node in xproc.evaluate(start_siblings):
-                copy_node(node, include_children=True, parent=new_tree)
+            xproc.set_context(xdm_item=result_start.get_parent())
+            last_node = copied_node
+            for node in xproc.evaluate(start_siblings) or []:
+                if node.node_kind_str == "text":
+                    last_node.tail = str(node)
+                else:
+                    last_node = copy_node(node, include_children=True, parent=last_node.getparent())
     else:
         # If we still don't have the same children as a result of start and end,
         #   We make sure to retrieve the element at the end of 2
@@ -254,6 +273,8 @@ def reconstruct_doc(
         )
         # If we have a queue, we run the queue
         if queue_start:
+            if end_siblings and not start_siblings:
+                start_siblings = f"./following-sibling::node()"
             reconstruct_doc(
                 result_start,
                 start_xpath=queue_start,
@@ -283,6 +304,7 @@ def reconstruct_doc(
 
         for sibling in (xpath.evaluate(
                 f"./node()[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]") or []):
+
             copy_node(sibling, include_children=True, parent=new_tree)
 
         # Here we reached the end, logically.
@@ -297,7 +319,7 @@ def reconstruct_doc(
             )
         elif end_siblings:
             for node in xproc.evaluate(end_siblings):
-                last = copy_node(node, include_children=True, parent=new_tree)
+                copy_node(node, include_children=True, parent=new_tree)
 
     return new_tree
 

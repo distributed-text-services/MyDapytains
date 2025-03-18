@@ -2,7 +2,7 @@
 <teiHeader>
 <encodingDesc>
 <refsDecl>
-<citeStructure unit="line" match="//body/div//lb" use="@n"/>
+<citeStructure unit="line" match="//body/div/ab/lb" use="@n"/>
 </refsDecl>
 </encodingDesc>
 </teiHeader>
