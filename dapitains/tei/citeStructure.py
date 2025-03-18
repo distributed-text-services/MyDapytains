@@ -132,7 +132,7 @@ class CiteStructureParser:
         children_cite_struct = get_children_cite_structures(element)
 
         citeDatas = get_xpath_proc(element).evaluate("./citeData")
-        if citeDatas:
+        if citeDatas is not None:
             for element in citeDatas:
                 cite_structure.metadata.append(CiteData(
                     xpath=element.get_attribute_value("use"),
@@ -247,8 +247,10 @@ class CiteStructureParser:
                 local_xproc = get_xpath_proc(xpath_proc.evaluate_single(self.generate_xpath(child.ref)))
                 for cite_data in structure.metadata:
                     if metadata_found := local_xproc.evaluate(cite_data.xpath):
-                        for value in metadata_found:
-                            child.__getattribute__(cite_data.key)[cite_data.name].append(value.get_string_value())
+                        for metadata_value in metadata_found:
+                            child.__getattribute__(cite_data.key)[cite_data.name].append(
+                                metadata_value.get_string_value()
+                            )
 
             if unit:
                 unit.children.append(child)

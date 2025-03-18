@@ -1,0 +1,24 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+<teiHeader>
+<encodingDesc>
+<refsDecl>
+<citeStructure unit="line" match="//body/div//lb" use="@n"/>
+</refsDecl>
+</encodingDesc>
+</teiHeader>
+<text>
+<body>
+<div xml:lang="grc" type="edition" xml:space="preserve">
+<ab>
+<lb n="0"/><gap reason="lost" extent="unknown" unit="line"/>
+<lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+<lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως
+</ab>
+<ab>
+<lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι
+<lb n="5"/>εὖ εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία.
+</ab>
+</div>
+</body>
+</text>
+</TEI>
