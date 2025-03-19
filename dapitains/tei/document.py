@@ -83,6 +83,19 @@ def _get_text(context, xpath: str) -> Optional[str]:
         f"{xpath}"
     ))
 
+def _get_sibling_xpath(node_xpath: str) -> str:
+    if node_xpath == "node()":
+        return "./following-sibling::node()"
+    return (f"."
+            f"/following-sibling::node()"
+            f"["
+            f"("
+            f"following-sibling::*[descendant-or-self::{node_xpath}] or .//{node_xpath}"
+            f") "
+            f"and not(self::{node_xpath})"
+            f"]")
+
+
 def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
     """ This function reintroduces whitespace between nodes. We use xQuery processor which does not strip space..."""
     if node.node_kind_str == "text":
@@ -99,7 +112,7 @@ def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
                         element.text = content
 
     if element.tail is None or len(element.tail) == 0:
-        tail: saxonlib.PyXdmNode = _get_text(node, "following-sibling::node()[1]")
+        tail = _get_text(node, "following-sibling::node()[1]")
         if tail is not None and not tail.strip():
             element.tail = str(tail)
 
@@ -183,6 +196,20 @@ def normalize_xpath(xpath: List[str]) -> List[str]:
     return new_xpath
 
 
+def _treat_siblings(context_node: saxonlib.PyXdmNode, last_node: ElementBase, xpath: str) -> Optional[ElementBase]:
+    xproc = get_xpath_proc(context_node)
+    if xproc.effective_boolean_value(f"not(following-sibling::{xpath} or .//{xpath} or following-sibling::*[.//{xpath}])"):
+        new_xpath = _get_sibling_xpath("node()")
+    else:
+        new_xpath = _get_sibling_xpath(xpath)
+    for node in (xproc.evaluate(new_xpath) or []):
+        if node.node_kind_str == "text":
+            if not last_node.tail:
+                last_node.tail = _get_text(node, ".")
+        else:
+            # ToDo: deal when it contains the node, as it will copy everything in it
+            last_node = copy_node(node, include_children=True, parent=last_node.getparent())
+
 def reconstruct_doc(
     root: saxonlib.PyXdmNode,
     start_xpath: List[str],
@@ -263,15 +290,8 @@ def reconstruct_doc(
                 start_siblings=start_siblings,
                 end_siblings=end_siblings
             )
-        elif start_siblings:
-            xproc.set_context(xdm_item=result_start.get_parent())
-            last_node = copied_node
-            for node in (xproc.evaluate(start_siblings) or []):
-                if node.node_kind_str == "text":
-                    if not last_node.tail:
-                        last_node.tail = _get_text(node, ".")
-                else:
-                    last_node = copy_node(node, include_children=True, parent=last_node.getparent())
+        if start_siblings:
+            _treat_siblings(context_node=result_start, xpath=start_siblings, last_node=copied_node)
     else:
         # If we still don't have the same children as a result of start and end,
         #   We make sure to retrieve the element at the end of 2
@@ -289,7 +309,9 @@ def reconstruct_doc(
         # If we have a queue, we run the queue
         if queue_start:
             if end_siblings and not start_siblings:
-                start_siblings = f"./{queue_start[-1]}/following-sibling::node()[not({queue_end[-1]})]"
+                # We have an end_siblings elsewhere, what we want is to cover what we find below, and we take everything
+                # but the next level !
+                start_siblings = "node()"
 
             reconstruct_doc(
                 result_start,
@@ -331,16 +353,10 @@ def reconstruct_doc(
                 new_tree=node,
                 start_xpath=queue_end,
                 end_xpath=queue_end,
-                start_siblings=end_siblings
+                start_siblings=end_siblings,
             )
-        elif end_siblings:
-            last_node = node
-            for node in xproc.evaluate(end_siblings):
-                if node.node_kind_str == "text":
-                    if not last_node.tail:
-                        last_node.tail = _get_text(node, ".")
-                else:
-                    last_node = copy_node(node, include_children=True, parent=new_tree)
+        if end_siblings:
+            _treat_siblings(context_node=result_end, xpath=end_siblings, last_node=node)
 
     return new_tree
 
@@ -394,17 +410,13 @@ class Document:
             if self.xpath_processor.effective_boolean_value(f"count({end_xpath}) and count({end_xpath}/node())=0"):
                 next_ref = self.get_next(tree, end).ref
                 next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
-                end_sibling = (f"{end_xpath_norm[-1].strip('/')}"
-                                 f"/following-sibling::node()"
-                                 f"[following-sibling::{next_ref_xpath.strip('/')} or following-sibling::*[./{next_ref_xpath}]]")
+                end_sibling = next_ref_xpath.strip("/")
         else:
             end_xpath_norm = start_xpath_norm
             if self.xpath_processor.effective_boolean_value(f"count({start_xpath}) and count({start_xpath}/node())=0"):
                 next_ref = self.get_next(tree, start).ref
                 next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
-                start_sibling = (f"{start_xpath_norm[-1].strip('/')}"
-                                 f"/following-sibling::node()"
-                                 f"[following-sibling::{next_ref_xpath.strip('/')} or following-sibling::*[./{next_ref_xpath}]]")
+                start_sibling = next_ref_xpath.strip("/")
 
         root = reconstruct_doc(
             self.xml,

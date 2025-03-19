@@ -17,7 +17,7 @@ def test_simple_single_lb():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
-        start_siblings="lb[@n='2']//following-sibling::node()[following-sibling::lb[@n='3']]",
+        start_siblings="lb[@n='3']",
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -34,14 +34,11 @@ def test_simple_single_lb():
 
 def test_simple_range_lb():
     doc = Document(os.path.join(p, "tei/lb_same_ab.xml"))
-    {'new_tree': None, 'start_xpath': ['/body', 'div', "/lb[@n='2']"], 'end_xpath': ['/body', 'div', "/lb[@n='4']"],
-     'start_siblings': None,
-     'end_siblings': "lb[@n='4']/following-sibling::node()[following-sibling::lb[@n='5'] or following-sibling::*[.//lb[@n='5']]]"}
     x = reconstruct_doc(
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
+        end_siblings="lb[@n='5']"
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -65,7 +62,7 @@ def test_overlapping_range_lb():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
+        end_siblings="lb[@n='5']"
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -92,7 +89,7 @@ def test_overlapping_range_lb_simulate_double_slash():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
+        end_siblings="lb[@n='5']"
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -109,6 +106,46 @@ def test_overlapping_range_lb_simulate_double_slash():
 </text>
 </TEI>"""
     assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
+
+
+def test_overlapping_single_uneven_lb():
+    doc = Document(os.path.join(p, "tei/lb_uneven_ab.xml"))
+    x = reconstruct_doc(
+        doc.xml,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
+        start_siblings="lb[@n='3']"
+    )
+    assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
+<body>
+<div xml:lang="grc" type="edition" xml:space="preserve">
+<ab>
+<w><lb n="2"/>Καίσαρος</w> <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2"))
+    doc = Document(os.path.join(p, "tei/lb_uneven_ab.xml"))
+    x = reconstruct_doc(
+        doc.xml,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='1']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='1']")),
+        start_siblings="lb[@n='2']"
+    )
+    assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
+<body>
+<div xml:lang="grc" type="edition" xml:space="preserve">
+<ab>
+<lb n="1"/><gap reason="lost" extent="unknown" unit="line"/><w>end of line 1
+</w>
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("1"))
 
 
 if __name__ == "__main__":
