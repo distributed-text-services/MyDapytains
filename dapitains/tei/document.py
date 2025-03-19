@@ -102,9 +102,6 @@ def copy_node(
             element = fromstring(element)
             if parent is not None:
                 parent.append(element)
-            # else:
-            #     print("WTF ?")
-            #     raise Exception
             return element
         elif parent is not None:
             if not parent.getchildren():
@@ -114,22 +111,12 @@ def copy_node(
             else:
                 parent.getchildren()[-1].tail = element
             return parent
-        # else:
-        #     print("MISSED ?", node, str(node), node.get_parent())
-        #     raise
-    # elif node.node_kind_str == "text":
-    #     print("STR", node.string_value)
 
     attribs = {
         attr.name.replace("Q{", "{"): attr.string_value  # Q{ => xml:id
         for attr in node.attributes
     }
-    # try:
     namespace, node_name = _namespace.match(node.name).groups()
-    # except:
-    #
-    #     print("EXCEPTION", type(node), node.node_kind_str)
-    #     raise
 
     kwargs = dict(
         _tag=node_name,
@@ -266,7 +253,7 @@ def reconstruct_doc(
             queue_end = end_xpath
 
         # We start by copying start.
-        copy_node(
+        parent_start = copy_node(
             result_start,
             include_children=len(queue_start) == 0,
             parent=new_tree
@@ -274,9 +261,11 @@ def reconstruct_doc(
         # If we have a queue, we run the queue
         if queue_start:
             if end_siblings and not start_siblings:
-                start_siblings = f"./following-sibling::node()"
+                start_siblings = f"{queue_start[-1]}/following-sibling::node()"
+
             reconstruct_doc(
                 result_start,
+                new_tree=parent_start,
                 start_xpath=queue_start,
                 end_xpath=queue_start,
                 start_siblings=start_siblings
@@ -315,7 +304,7 @@ def reconstruct_doc(
                 new_tree=node,
                 start_xpath=queue_end,
                 end_xpath=queue_end,
-                end_siblings=end_siblings
+                start_siblings=end_siblings
             )
         elif end_siblings:
             for node in xproc.evaluate(end_siblings):
