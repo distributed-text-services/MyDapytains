@@ -137,19 +137,23 @@ def copy_node(
         xq = PROCESSOR.new_xquery_processor()
         xq.set_context(xdm_item=node)
         if remove_milestone:
-            element = xq.run_query_to_string(query_text=(f"""declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
+            element = xq.run_query_to_string(query_text=("""declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
 declare option output:omit-xml-declaration 'yes';
-let $cutoff := .//{remove_milestone}"""+"""
-return
-  if ($cutoff) then
-    let $root := /*  (: Select the document root :)
-    return
-      element {name($root)} {  (: Reconstruct the root element :)
-        $root/@*,  (: Preserve attributes :)
-        $root/node()[. << $cutoff]  (: Keep only nodes before <lb n="3"/> :)
+declare function local:prune($node) {
+  if (not(descendant-or-self::"""+remove_milestone+""")) then
+    return $node
+  else if ($node instance of element()) then
+    let $before := $node/node()[. << $node//"""+remove_milestone+"""]
+    return 
+      if (empty($before)) then () (: Remove empty nodes :)
+      else element {name($node)} {
+        $node/@*,  (: Preserve attributes :)
+        for $child in $before return local:prune($child)  (: Recursively process children :)
       }
-  else
-    ."""))
+  else $node  (: Preserve text, comments, etc. :)
+};
+
+local:prune(.)"""))
             print(element)
         else:
             element = xq.run_query_to_string(query_text=(
