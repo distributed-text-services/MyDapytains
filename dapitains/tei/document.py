@@ -372,33 +372,19 @@ class Document:
         except KeyError:
             raise UnknownTreeName(tree)
 
-        def check_contains(string: str) -> bool:
-            return self.xpath_processor.effective_boolean_value(f"{string}/node()")
-
-        start_contains = check_contains(start_xpath)
-        start_siblings = None
-        if not start_contains and not end:
-            # The way siblings work make it so that if lb n 3 is in another document, we'll have an issue
-            # So we need to build the siblings a clever way
-            start_siblings = "/TEI/text/body/div/ab/lb[@n='2']//following-sibling::node()[following-sibling::lb[@n='3']]"
-        start_xpath = normalize_xpath(xpath_split(start_xpath))
+        start_xpath_norm = normalize_xpath(xpath_split(start_xpath))
         if end:
             end_xpath = self.citeStructure[tree].generate_xpath(end)
-            end_xpath = normalize_xpath(xpath_split(end_xpath))
-        # elif not start_contains and not end:
-        #     end = self.get_next(tree, start).ref
-        #     end_xpath = self.citeStructure[tree].generate_xpath(end)
-        #     end_xpath = normalize_xpath(xpath_split(end_xpath))
+            end_xpath_norm = normalize_xpath(xpath_split(end_xpath))
         else:
-            end_xpath = start
+            end_xpath_norm = start_xpath_norm
 
         root = reconstruct_doc(
             self.xml,
             new_tree=None,
-            start_xpath=start_xpath,
-            end_xpath=end_xpath
+            start_xpath=start_xpath_norm,
+            end_xpath=end_xpath_norm
         )
-
         objectify.deannotate(root, cleanup_namespaces=True)
         return root
 

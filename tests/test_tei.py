@@ -12,8 +12,16 @@ def test_single_passage():
     doc = Document(f"{local_dir}/base_tei.xml")
     assert tostring(
         doc.get_passage("Luke 1:1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>'
-          '<div n="Luke"><div><div>Text</div></div></div></body></text></TEI>')
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '    <body>\n'
+ '    <div n="Luke">\n'
+ '        <div>\n'
+ '            <div>Text</div>\n'
+ '            </div>\n'
+ '    </div>\n'
+ '    </body>\n'
+ '    </text>\n'
+ '</TEI>')
 
 
 def test_simple_range():
@@ -21,9 +29,18 @@ def test_simple_range():
     doc = Document(f"{local_dir}/base_tei.xml")
     assert tostring(
         doc.get_passage(ref_or_start="Luke 1:1", end="Luke 1#1"), encoding=str
-    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body><div n="Luke"><div><div>Text</div><div>Text 2</div>'
-          '<l>Text 3</l></div>'
-          '</div></body></text></TEI>')
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '    <body>\n'
+ '    <div n="Luke">\n'
+ '        <div>\n'
+ '            <div>Text</div>\n'
+ '            <div>Text 2</div>\n'
+ '            <l>Text 3</l>\n'
+ '        </div>\n'
+ '    </div>\n'
+ '    </body>\n'
+ '    </text>\n'
+ '</TEI>')
 
 
 def test_different_level_range():
