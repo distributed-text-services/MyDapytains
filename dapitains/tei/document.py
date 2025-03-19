@@ -1,7 +1,7 @@
 from dapitains.tei.citeStructure import CiteStructureParser, CitableUnit
 from dapitains.constants import PROCESSOR, get_xpath_proc, saxonlib
 from typing import Optional, List, Tuple, Dict
-from lxml.etree import fromstring, tostring, ElementTree
+from lxml.etree import fromstring, tostring, ElementTree, ElementBase
 from lxml.objectify import Element, SubElement, StringElement
 from lxml import objectify
 import re
@@ -74,11 +74,35 @@ def xpath_walk_step(parent: saxonlib.PyXdmNode, xpath: str) -> Tuple[saxonlib.Py
         return xpath_proc.evaluate_single(xpath), False
 
 
+_xq = PROCESSOR.new_xquery_processor()
+def _get_text(context, xpath: str) -> Optional[str]:
+    _xq.set_context(xdm_item=context)
+    return _xq.run_query_to_string(query_text=(
+        "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
+        "declare option output:omit-xml-declaration 'yes';"
+        f"{xpath}"
+    ))
+
+def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
+    """ This function reintroduces whitespace between nodes. We use xQuery processor which does not strip space..."""
+    if len(node.children) and node.children[0] is not None:
+        possible_indent: "saxonche.PyXdmNode" = node.children[0]
+        if possible_indent.node_kind_str == "text":
+            if content := _get_text(possible_indent, "."):
+                if not content.strip():
+                    element._setText(_get_text(possible_indent, "."))
+    if element.tail is None or len(element.tail) == 0:
+        tail: saxonlib.PyXdmNode = _get_text(node, "following-sibling::node()[1]")
+        if tail is not None and not tail.strip():
+            element.tail = str(tail)
+    else:
+        print("Not tail", len(element.tail), element.tail)
+
+
 def copy_node(
         node: saxonlib.PyXdmNode,
         include_children=False,
-        parent: Optional[Element] = None,
-        include_spaces: bool = False
+        parent: Optional[Element] = None
 ):
     """ Copy an XML Node
 
@@ -102,11 +126,10 @@ def copy_node(
             element = fromstring(element)
             if parent is not None:
                 parent.append(element)
+            _add_space_tail(element, node)
             return element
         elif parent is not None:
             if not parent.getchildren():
-                # if parent.text is None:
-                #     parent.text = ""
                 parent.text += element
             else:
                 parent.getchildren()[-1].tail = element
@@ -125,16 +148,9 @@ def copy_node(
                    # force SubElement to create a <text> tag instead of text()
     )
 
-    if include_spaces:
-        if len(node.children) and node.children[0] is not None:
-            possible_indent: "saxonche.PyXdmNode" = node.children[0]
-            if possible_indent.node_kind_str == "text" and str(possible_indent).strip() == "":
-                include_spaces = possible_indent.string_value
-
     if parent is not None:
         element = SubElement(parent, **kwargs)
-        if include_spaces:
-            element._setText(include_spaces)
+        _add_space_tail(element, node)
     else:
         element = Element(**kwargs)
 
@@ -213,8 +229,7 @@ def reconstruct_doc(
         copied_node = copy_node(
             result_start,
             include_children=len(queue_start) == 0,
-            parent=new_tree,
-            include_spaces=True
+            parent=new_tree
         )
 
         # If that's the first element EVER, then we make this child the root node of our new tree
@@ -241,7 +256,8 @@ def reconstruct_doc(
             last_node = copied_node
             for node in xproc.evaluate(start_siblings) or []:
                 if node.node_kind_str == "text":
-                    last_node.tail = str(node)
+                    if not last_node.tail:
+                        last_node.tail = _get_text(node, ".")
                 else:
                     last_node = copy_node(node, include_children=True, parent=last_node.getparent())
     else:
@@ -293,7 +309,6 @@ def reconstruct_doc(
 
         for sibling in (xpath.evaluate(
                 f"./node()[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]") or []):
-
             copy_node(sibling, include_children=True, parent=new_tree)
 
         # Here we reached the end, logically.
@@ -307,8 +322,13 @@ def reconstruct_doc(
                 start_siblings=end_siblings
             )
         elif end_siblings:
+            last_node = node
             for node in xproc.evaluate(end_siblings):
-                copy_node(node, include_children=True, parent=new_tree)
+                if node.node_kind_str == "text":
+                    if not last_node.tail:
+                        last_node.tail = _get_text(node, ".")
+                else:
+                    last_node = copy_node(node, include_children=True, parent=new_tree)
 
     return new_tree
 

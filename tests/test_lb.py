@@ -23,7 +23,12 @@ def test_simple_single_lb():
 <body>
 <div xml:lang="grc" type="edition" xml:space="preserve">
 <ab>
-<lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan></ab></div></body></text></TEI>"""
+<lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
 
 def test_simple_range_lb():
     doc = Document(os.path.join(p, "tei/lb_same_ab.xml"))
@@ -40,7 +45,11 @@ def test_simple_range_lb():
 <lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
 <lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως
 <lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι
-</ab></div></body></text></TEI>"""
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
 
 
 def test_overlapping_range_lb():
@@ -54,8 +63,17 @@ def test_overlapping_range_lb():
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
 <div xml:lang="grc" type="edition" xml:space="preserve">
-<ab><lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan><lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως</ab>
-<ab><lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι</ab></div></body></text></TEI>"""
+<ab>
+<lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+<lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως
+</ab>
+<ab>
+<lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
 
 
 if __name__ == "__main__":
