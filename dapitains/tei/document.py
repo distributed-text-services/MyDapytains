@@ -199,7 +199,11 @@ def reconstruct_doc(
     :type start_xpath: [str]
     :param end_xpath: List of xpath elements
     :type end_xpath: [str]
+    :param start_siblings: If siblings of starts need to be captured, provide the XPATH here
+    :param end_siblings: If siblings of end need to be captured, provide XPath here.
     :return: Newly incremented tree
+
+    toDo: Check if start_xpath should not be provided in the context of a range ?
     """
     current_start, queue_start = xpath_walk(start_xpath)
     xproc = get_xpath_proc(root)
@@ -262,7 +266,8 @@ def reconstruct_doc(
         elif start_siblings:
             xproc.set_context(xdm_item=result_start.get_parent())
             last_node = copied_node
-            for node in xproc.evaluate(start_siblings) or []:
+            print(start_siblings)
+            for node in (xproc.evaluate(start_siblings) or []):
                 if node.node_kind_str == "text":
                     if not last_node.tail:
                         last_node.tail = _get_text(node, ".")
@@ -285,7 +290,7 @@ def reconstruct_doc(
         # If we have a queue, we run the queue
         if queue_start:
             if end_siblings and not start_siblings:
-                start_siblings = f"{queue_start[-1]}/following-sibling::node()"
+                start_siblings = f"./{queue_start[-1]}/following-sibling::node()[not({queue_end[-1]})]"
 
             reconstruct_doc(
                 result_start,
@@ -381,17 +386,34 @@ class Document:
             raise UnknownTreeName(tree)
 
         start_xpath_norm = normalize_xpath(xpath_split(start_xpath))
+        start_sibling = None
+        end_sibling = None
+
         if end:
             end_xpath = self.citeStructure[tree].generate_xpath(end)
             end_xpath_norm = normalize_xpath(xpath_split(end_xpath))
+            if self.xpath_processor.effective_boolean_value(f"count({end_xpath}) and count({end_xpath}/node())=0"):
+                next_ref = self.get_next(tree, end).ref
+                next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
+                end_sibling = (f"{end_xpath_norm[-1].strip('/')}"
+                                 f"/following-sibling::node()"
+                                 f"[following-sibling::{next_ref_xpath.strip('/')} or following-sibling::*[./{next_ref_xpath}]]")
         else:
             end_xpath_norm = start_xpath_norm
+            if self.xpath_processor.effective_boolean_value(f"count({start_xpath}) and count({start_xpath}/node())=0"):
+                next_ref = self.get_next(tree, start).ref
+                next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
+                start_sibling = (f"{start_xpath_norm[-1].strip('/')}"
+                                 f"/following-sibling::node()"
+                                 f"[following-sibling::{next_ref_xpath.strip('/')} or following-sibling::*[./{next_ref_xpath}]]")
 
         root = reconstruct_doc(
             self.xml,
             new_tree=None,
             start_xpath=start_xpath_norm,
-            end_xpath=end_xpath_norm
+            end_xpath=end_xpath_norm,
+            start_siblings=start_sibling,
+            end_siblings=end_sibling
         )
         objectify.deannotate(root, cleanup_namespaces=True)
         return root

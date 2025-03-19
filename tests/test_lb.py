@@ -29,9 +29,14 @@ def test_simple_single_lb():
 </body>
 </text>
 </TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2"))
+
 
 def test_simple_range_lb():
     doc = Document(os.path.join(p, "tei/lb_same_ab.xml"))
+    {'new_tree': None, 'start_xpath': ['/body', 'div', "/lb[@n='2']"], 'end_xpath': ['/body', 'div', "/lb[@n='4']"],
+     'start_siblings': None,
+     'end_siblings': "lb[@n='4']/following-sibling::node()[following-sibling::lb[@n='5'] or following-sibling::*[.//lb[@n='5']]]"}
     x = reconstruct_doc(
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
@@ -50,6 +55,8 @@ def test_simple_range_lb():
 </body>
 </text>
 </TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
+
 
 
 def test_overlapping_range_lb():
@@ -74,6 +81,7 @@ def test_overlapping_range_lb():
 </body>
 </text>
 </TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
 
 
 if __name__ == "__main__":
@@ -82,8 +90,5 @@ if __name__ == "__main__":
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        # end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        # start_siblings="lb[@n='2']//following-sibling::node()[following-sibling::lb[@n='3']]",
-        # start_siblings="/TEI/text/body/div/ab/lb[@n='2']//following-sibling::node()[following-sibling::lb[@n='5']]",
         end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
     )
