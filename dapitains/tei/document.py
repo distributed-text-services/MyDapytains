@@ -85,18 +85,23 @@ def _get_text(context, xpath: str) -> Optional[str]:
 
 def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
     """ This function reintroduces whitespace between nodes. We use xQuery processor which does not strip space..."""
+    if node.node_kind_str == "text":
+        return
+
     if len(node.children) and node.children[0] is not None:
         possible_indent: "saxonche.PyXdmNode" = node.children[0]
-        if possible_indent.node_kind_str == "text":
+        if possible_indent.node_kind_str == "text" and not (element.text and element.text.strip()):
             if content := _get_text(possible_indent, "."):
                 if not content.strip():
-                    element._setText(_get_text(possible_indent, "."))
+                    if hasattr(element, "_setText"):
+                        element._setText(content)
+                    else:
+                        element.text = content
+
     if element.tail is None or len(element.tail) == 0:
         tail: saxonlib.PyXdmNode = _get_text(node, "following-sibling::node()[1]")
         if tail is not None and not tail.strip():
             element.tail = str(tail)
-    else:
-        print("Not tail", len(element.tail), element.tail)
 
 
 def copy_node(
@@ -134,6 +139,9 @@ def copy_node(
             else:
                 parent.getchildren()[-1].tail = element
             return parent
+
+    if node is None:
+        raise TypeError("A None element has been provided to copy-node")
 
     attribs = {
         attr.name.replace("Q{", "{"): attr.string_value  # Q{ => xml:id
