@@ -266,7 +266,6 @@ def reconstruct_doc(
         elif start_siblings:
             xproc.set_context(xdm_item=result_start.get_parent())
             last_node = copied_node
-            print(start_siblings)
             for node in (xproc.evaluate(start_siblings) or []):
                 if node.node_kind_str == "text":
                     if not last_node.tail:

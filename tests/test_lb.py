@@ -84,6 +84,33 @@ def test_overlapping_range_lb():
     assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
 
 
+def test_overlapping_range_lb_simulate_double_slash():
+    doc = Document(os.path.join(p, "tei/lb_diff_ab.xml"))
+    doc.citeStructure["default"].structure.xpath = doc.citeStructure["default"].structure.xpath.replace("ab/", "/")
+    doc.citeStructure["default"].structure.xpath_match = doc.citeStructure["default"].structure.xpath_match.replace("ab/", "/")
+    x = reconstruct_doc(
+        doc.xml,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
+        end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
+    )
+    assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
+<body>
+<div xml:lang="grc" type="edition" xml:space="preserve">
+<ab>
+<lb n="2"/>Καίσαρος <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+<lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως
+</ab>
+<ab>
+<lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι
+</ab>
+</div>
+</body>
+</text>
+</TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
+
+
 if __name__ == "__main__":
     doc = Document(os.path.join(p, "tei/lb_diff_ab.xml"))
     x = reconstruct_doc(
