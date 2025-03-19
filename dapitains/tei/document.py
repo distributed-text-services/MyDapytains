@@ -120,7 +120,8 @@ def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
 def copy_node(
         node: saxonlib.PyXdmNode,
         include_children=False,
-        parent: Optional[Element] = None
+        parent: Optional[Element] = None,
+        remove_milestone: Optional[str] = None
 ):
     """ Copy an XML Node
 
@@ -135,11 +136,27 @@ def copy_node(
         # We need to workaround false indentation through this xQuery
         xq = PROCESSOR.new_xquery_processor()
         xq.set_context(xdm_item=node)
-        element = xq.run_query_to_string(query_text=(
-            "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
-            "declare option output:omit-xml-declaration 'yes';"
-            "."
-        ))
+        if remove_milestone:
+            element = xq.run_query_to_string(query_text=(f"""declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
+declare option output:omit-xml-declaration 'yes';
+let $cutoff := .//{remove_milestone}"""+"""
+return
+  if ($cutoff) then
+    let $root := /*  (: Select the document root :)
+    return
+      element {name($root)} {  (: Reconstruct the root element :)
+        $root/@*,  (: Preserve attributes :)
+        $root/node()[. << $cutoff]  (: Keep only nodes before <lb n="3"/> :)
+      }
+  else
+    ."""))
+            print(element)
+        else:
+            element = xq.run_query_to_string(query_text=(
+                "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
+                "declare option output:omit-xml-declaration 'yes';"
+                "."
+            ))
         if element.startswith("<"):
             element = fromstring(element)
             if parent is not None:
@@ -208,7 +225,15 @@ def _treat_siblings(context_node: saxonlib.PyXdmNode, last_node: ElementBase, xp
                 last_node.tail = _get_text(node, ".")
         else:
             # ToDo: deal when it contains the node, as it will copy everything in it
-            last_node = copy_node(node, include_children=True, parent=last_node.getparent())
+            if xpath != "node()":
+                last_node = copy_node(
+                    node,
+                    include_children=True,
+                    parent=last_node.getparent(),
+                    remove_milestone=xpath
+                )
+            else:
+                last_node = copy_node(node, include_children=True, parent=last_node.getparent())
 
 def reconstruct_doc(
     root: saxonlib.PyXdmNode,
