@@ -150,6 +150,34 @@ def test_overlapping_single_uneven_lb_at_the_end():
     assert _to_string(x) == _to_string(doc.get_passage("1"))
 
 
+def test_overlapping_single_uneven_lb_range():
+    doc = Document(os.path.join(p, "tei/lb_uneven_ab.xml"))
+    x = reconstruct_doc(
+        doc.xml,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='5']")),
+        end_siblings="lb[@n='6']"
+    )
+    assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
+<body>
+<div xml:lang="grc" type="edition" xml:space="preserve">
+<ab>
+<w><lb n="2"/>Καίσαρος</w> <unclear>Ο</unclear><supplied reason="lost">ὐεσ</supplied>πασιανοῦ <expan><unclear>Σεβα</unclear><ex>στοῦ</ex></expan>
+<lb n="3"/>τύχην ταῖς ἀληθείαις οὕτως
+</ab>
+<ab>
+<lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι
+</ab>
+<ab>
+<lb n="5"/>εὖ εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία. <w>b
+</w></ab>
+</div>
+</body>
+</text>
+</TEI>"""
+    assert _to_string(x) == _to_string(doc.get_passage("2", "5"))
+
+
 if __name__ == "__main__":
     doc = Document(os.path.join(p, "tei/lb_diff_ab.xml"))
     x = reconstruct_doc(
