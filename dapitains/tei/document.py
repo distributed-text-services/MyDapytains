@@ -7,7 +7,6 @@ from lxml import objectify
 import re
 from dapitains.errors import UnknownTreeName
 
-
 _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
 
 
@@ -117,6 +116,28 @@ def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
             element.tail = str(tail)
 
 
+def _prune(node: saxonlib.PyXdmNode, milestone: str) -> str:
+    xq = PROCESSOR.new_xquery_processor()
+    xq.set_context(xdm_item=node)
+    query = """declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
+declare default element namespace 'http://www.tei-c.org/ns/1.0';
+declare option output:omit-xml-declaration 'yes';
+declare function local:prune($node) {
+  if ($node instance of element()) then 
+    let $before := $node/node()[. << $node/descendant-or-self::"""+milestone+"""]
+    return  (: Missing return here :)
+      if (not($node/descendant-or-self::"""+milestone+""")) then $node
+      else element {name($node)} {
+        $node/@*,  (: Preserve attributes :)
+        for $child in $before return local:prune($child)  (: Recursively process children :)
+      }
+  else $node  (: Preserve text, comments, etc. :)
+};
+local:prune(.)"""
+    x = xq.run_query_to_string(query_text=query)
+    return x
+
+
 def copy_node(
         node: saxonlib.PyXdmNode,
         include_children=False,
@@ -134,28 +155,11 @@ def copy_node(
     if include_children:
         # We simply go from the element as a string to an element as XML.
         # We need to workaround false indentation through this xQuery
-        xq = PROCESSOR.new_xquery_processor()
-        xq.set_context(xdm_item=node)
         if remove_milestone:
-            element = xq.run_query_to_string(query_text=("""declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
-declare option output:omit-xml-declaration 'yes';
-declare function local:prune($node) {
-  if (not(descendant-or-self::"""+remove_milestone+""")) then
-    return $node
-  else if ($node instance of element()) then
-    let $before := $node/node()[. << $node//"""+remove_milestone+"""]
-    return 
-      if (empty($before)) then () (: Remove empty nodes :)
-      else element {name($node)} {
-        $node/@*,  (: Preserve attributes :)
-        for $child in $before return local:prune($child)  (: Recursively process children :)
-      }
-  else $node  (: Preserve text, comments, etc. :)
-};
-
-local:prune(.)"""))
-            print(element)
+            element = _prune(node, remove_milestone)
         else:
+            xq = PROCESSOR.new_xquery_processor()
+            xq.set_context(xdm_item=node)
             element = xq.run_query_to_string(query_text=(
                 "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
                 "declare option output:omit-xml-declaration 'yes';"
@@ -228,7 +232,6 @@ def _treat_siblings(context_node: saxonlib.PyXdmNode, last_node: ElementBase, xp
             if not last_node.tail:
                 last_node.tail = _get_text(node, ".")
         else:
-            # ToDo: deal when it contains the node, as it will copy everything in it
             if xpath != "node()":
                 last_node = copy_node(
                     node,

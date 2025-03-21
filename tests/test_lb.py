@@ -108,7 +108,7 @@ def test_overlapping_range_lb_simulate_double_slash():
     assert _to_string(x) == _to_string(doc.get_passage("2", "4"))
 
 
-def test_overlapping_single_uneven_lb():
+def test_overlapping_single_uneven_lb_at_the_start():
     doc = Document(os.path.join(p, "tei/lb_uneven_ab.xml"))
     x = reconstruct_doc(
         doc.xml,
@@ -127,6 +127,9 @@ def test_overlapping_single_uneven_lb():
 </text>
 </TEI>"""
     assert _to_string(x) == _to_string(doc.get_passage("2"))
+
+
+def test_overlapping_single_uneven_lb_at_the_end():
     doc = Document(os.path.join(p, "tei/lb_uneven_ab.xml"))
     x = reconstruct_doc(
         doc.xml,
@@ -139,8 +142,7 @@ def test_overlapping_single_uneven_lb():
 <div xml:lang="grc" type="edition" xml:space="preserve">
 <ab>
 <lb n="1"/><gap reason="lost" extent="unknown" unit="line"/><w>end of line 1
-</w>
-</ab>
+</w> </ab>
 </div>
 </body>
 </text>
