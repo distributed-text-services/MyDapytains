@@ -41,7 +41,7 @@ def _parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
 
     # Treat Extension
     extensions = []
-    for node in xml.xpath("./extension/*"):
+    for node in xml.xpath("./extensions/*"):
         tag = _re_tag.sub("", node.tag)
         language = node.attrib.get("{http://www.w3.org/XML/1998/namespace}lang")
         text = node.text
@@ -57,7 +57,7 @@ def _parse_metadata(xml: ET.Element) -> Tuple[Dict[str, Any], List[str]]:
     return obj, parents
 
 
-def _parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collection:
+def _parse_collection(xml: ET.Element, basedir: str, tree: Catalog, filepath: Optional[str] = None) -> Collection:
     """ Parse a Collection or Resource object
 
     :param xml: Parsed Collection or Resource by LXML
@@ -66,6 +66,7 @@ def _parse_collection(xml: ET.Element, basedir: str, tree: Catalog) -> Collectio
     """
     obj, parents = _parse_metadata(xml)
     obj = Collection(**obj, resource=xml.tag == "resource")
+    obj._metadata_filepath = filepath
     for parent in parents:
         tree.relationships.append((parent, obj.identifier))
     tree.objects[obj.identifier] = obj
@@ -94,5 +95,5 @@ def parse(path: str, tree: Optional[Catalog] = None) -> Tuple[Catalog, Collectio
 
     root: ET.Element = xml.getroot()
     tree = tree or Catalog()
-    root_collection = _parse_collection(root, basedir=current_dir, tree=tree)
+    root_collection = _parse_collection(root, basedir=current_dir, tree=tree, filepath=path)
     return tree, root_collection

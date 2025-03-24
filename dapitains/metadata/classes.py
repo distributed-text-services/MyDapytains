@@ -36,6 +36,7 @@ class Collection:
     extensions: List[Extension] = field(default_factory=list)
     resource: bool = False
     filepath: Optional[str] = None
+    _metadata_filepath: Optional[str] = None
 
     def json(self):
         return {
