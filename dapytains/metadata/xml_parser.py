@@ -3,7 +3,7 @@ import re
 from typing import Dict, Optional, List, Tuple, Any
 from dataclasses import dataclass, field
 import lxml.etree as ET
-from dapitains.metadata.classes import DublinCore, Extension, Collection
+from dapytains.metadata.classes import DublinCore, Extension, Collection
 
 
 __all__ = ["Catalog", "parse"]

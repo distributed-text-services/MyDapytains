@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from collections import namedtuple, defaultdict
 from functools import cmp_to_key
-from dapitains.constants import get_xpath_proc, saxonlib
+from dapytains.constants import get_xpath_proc, saxonlib
 
 
 @dataclass

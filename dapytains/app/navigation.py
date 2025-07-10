@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional, Tuple
-from dapitains.errors import InvalidRangeOrder
+from dapytains.errors import InvalidRangeOrder
 
 
 def get_member_by_path(data: List[Dict[str, Any]], path: List[int]) -> Optional[Dict[str, Any]]:

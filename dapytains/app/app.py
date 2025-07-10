@@ -11,10 +11,10 @@ except ImportError:
 
 import json
 import lxml.etree as ET
-from dapitains.tei.document import Document
-from dapitains.errors import InvalidRangeOrder
-from dapitains.app.database import db, Collection, Navigation
-from dapitains.app.navigation import get_nav, get_member_by_path
+from dapytains.tei.document import Document
+from dapytains.errors import InvalidRangeOrder
+from dapytains.app.database import db, Collection, Navigation
+from dapytains.app.navigation import get_nav, get_member_by_path
 
 
 def inject_json(collection: Collection, templates) -> Dict:
@@ -263,8 +263,8 @@ def create_app(
 
 if __name__ == "__main__":
     import os
-    from dapitains.app.ingest import store_catalog
-    from dapitains.metadata.xml_parser import parse
+    from dapytains.app.ingest import store_catalog
+    from dapytains.metadata.xml_parser import parse
 
     app = Flask(__name__)
     _, db = create_app(app, base_uri="http://localhost:5000")

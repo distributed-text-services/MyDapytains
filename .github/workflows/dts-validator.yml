@@ -34,7 +34,7 @@ jobs:
       # Flask Server
       - name: Start Flask server
         run: |
-          python -m dapitains.app.app &
+          python -m dapytains.app.app &
       - name: Wait for Flask server to start
         run: sleep 5 # Adjust as needed
 

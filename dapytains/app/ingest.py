@@ -1,8 +1,8 @@
 from typing import Dict, Optional
-from dapitains.app.database import Collection, Navigation, db, parent_child_association
-from dapitains.app.navigation import generate_paths
-from dapitains.metadata.xml_parser import Catalog
-from dapitains.tei.document import Document
+from dapytains.app.database import Collection, Navigation, db, parent_child_association
+from dapytains.app.navigation import generate_paths
+from dapytains.metadata.xml_parser import Catalog
+from dapytains.tei.document import Document
 import tqdm
 
 

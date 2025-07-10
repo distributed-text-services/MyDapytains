@@ -1,7 +1,7 @@
 import os.path
 import lxml.etree as et
 from lxml import objectify
-from dapitains.tei.document import Document, reconstruct_doc,  normalize_xpath, xpath_split
+from dapytains.tei.document import Document, reconstruct_doc,  normalize_xpath, xpath_split
 
 p = os.path.dirname(os.path.abspath(__file__))
 

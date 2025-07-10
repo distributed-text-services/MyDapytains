@@ -1,11 +1,11 @@
-from dapitains.tei.citeStructure import CiteStructureParser, CitableUnit
-from dapitains.constants import PROCESSOR, get_xpath_proc, saxonlib
+from dapytains.tei.citeStructure import CiteStructureParser, CitableUnit
+from dapytains.constants import PROCESSOR, get_xpath_proc, saxonlib
 from typing import Optional, List, Tuple, Dict
 from lxml.etree import fromstring, tostring, ElementTree, ElementBase
 from lxml.objectify import Element, SubElement, StringElement
 from lxml import objectify
 import re
-from dapitains.errors import UnknownTreeName
+from dapytains.errors import UnknownTreeName
 
 _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
 

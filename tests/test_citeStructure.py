@@ -1,5 +1,5 @@
-from dapitains.tei.citeStructure import CiteStructureParser
-from dapitains.constants import PROCESSOR, get_xpath_proc
+from dapytains.tei.citeStructure import CiteStructureParser
+from dapytains.constants import PROCESSOR, get_xpath_proc
 import os.path
 import pytest
 

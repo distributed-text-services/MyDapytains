@@ -1,6 +1,6 @@
 import flask
-from dapitains.app.navigation import get_member_by_path, strip_members, generate_paths, get_nav
-from dapitains.tei.document import Document
+from dapytains.app.navigation import get_member_by_path, strip_members, generate_paths, get_nav
+from dapytains.tei.document import Document
 import os
 
 

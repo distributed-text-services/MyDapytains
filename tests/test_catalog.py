@@ -1,7 +1,7 @@
 import os.path
 
-from dapitains.metadata.xml_parser import parse
-from dapitains.metadata.classes import *
+from dapytains.metadata.xml_parser import parse
+from dapytains.metadata.classes import *
 
 
 local_dir = os.path.join(os.path.dirname(__file__))
@@ -9,7 +9,6 @@ local_dir = os.path.join(os.path.dirname(__file__))
 
 def test_ingestion():
     tree, _ = parse(f"{local_dir}/catalog/example-collection.xml")
-
     assert tree.objects == {
         "https://foo.bar/default": Collection(
             identifier='https://foo.bar/default',
@@ -41,7 +40,17 @@ def test_ingestion():
                 DublinCore(term='subject', value='World War II', language=None),
                 DublinCore(term='language', value='en', language=None)
             ],
-            extensions=[], resource=True,
+            extensions=[
+                Extension(
+                    term='https://example.org/ratingrating',
+                    value='5 stars',
+                    language=None),
+                Extension(
+                    term='https://example.org/commentcomment',
+                    value='Very informative document.',
+                    language=None)
+            ],
+            resource=True,
             filepath=os.path.abspath(f"{local_dir}/tei/multiple_tree.xml")
         ),
         "https://foo.bar/text": Collection(
@@ -51,11 +60,12 @@ def test_ingestion():
             dublin_core=[
                 DublinCore(term='title', value='A simple resource', language=None)
             ],
-            extensions=[],
+            extensions=[Extension(term='https://foaf.com/foafsomething', value='Truc', language=None)],
             resource=True,
             filepath=os.path.abspath(f"{local_dir}/tei/base_tei.xml")
         )
     }
+
 
     assert sorted(tree.relationships) == [
         ('https://example.org/collection1', 'https://example.org/resource1'),

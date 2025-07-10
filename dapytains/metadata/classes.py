@@ -38,6 +38,18 @@ class Collection:
     filepath: Optional[str] = None
     _metadata_filepath: Optional[str] = None
 
+    def __eq__(self, other: "Collection"):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+                self.identifier == other.identifier
+                and self.title == other.title
+                and self.description == other.description
+                and self.dublin_core == other.dublin_core
+                and self.extensions == other.extensions
+                and self.resource == other.resource
+        )
+
     def json(self):
         return {
             "identifier": self.identifier,

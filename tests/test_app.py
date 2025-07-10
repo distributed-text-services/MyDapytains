@@ -1,9 +1,9 @@
 import os
 import pytest
 from flask import Flask
-from dapitains.app.app import create_app
-from dapitains.app.ingest import store_catalog
-from dapitains.metadata.xml_parser import parse
+from dapytains.app.app import create_app
+from dapytains.app.ingest import store_catalog
+from dapytains.metadata.xml_parser import parse
 import uritemplate
 import urllib
 
@@ -97,6 +97,10 @@ def test_collection(client):
                            'document': 'http://localhost:5000/document/?resource=https%3A%2F%2Fexample.org'
                                        '%2Fresource1{&ref,start,end,tree}',
                            'dublinCore': {'language': ['en'], 'subject': ['World War II']},
+                           'extensions': {'https://example.org/commentcomment': ['Very '
+                                                                                 'informative '
+                                                                                 'document.'],
+                                          'https://example.org/ratingrating': ['5 stars']},
                            'navigation': 'http://localhost:5000/navigation/?resource=https%3A%2F%2Fexample.org'
                                          '%2Fresource1{&ref,start,end,tree,down}',
                            'title': 'Historical Document',
@@ -115,6 +119,7 @@ def test_collection(client):
                            'document': 'http://localhost:5000/document/?resource=https%3A%2F%2Ffoo.bar%2Ftext{&ref,'
                                        'start,end,tree}',
                            'dublinCore': {'title': ['A simple resource']},
+                           'extensions': {'https://foaf.com/foafsomething': ['Truc']},
                            'navigation': 'http://localhost:5000/navigation/?resource=https%3A%2F%2Ffoo.bar%2Ftext{'
                                          '&ref,start,end,tree,down}',
                            'title': 'A simple resource',
@@ -149,6 +154,14 @@ def test_collection(client):
                         'document': 'http://localhost:5000/document/?resource=https%3A%2F%2Fexample.org%2Fresource1{'
                                     '&ref,start,end,tree}',
                         'dublinCore': {'language': ['en'], 'subject': ['World War II']},
+                        'extensions': {
+                            'https://example.org/commentcomment': [
+                                'Very informative document.',
+                            ],
+                            'https://example.org/ratingrating': [
+                                '5 stars',
+                            ],
+                        },
                         'navigation': 'http://localhost:5000/navigation/?resource=https%3A%2F%2Fexample.org'
                                       '%2Fresource1{&ref,start,end,tree,down}',
                         'title': 'Historical Document',

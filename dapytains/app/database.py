@@ -11,7 +11,7 @@ except ImportError:
     raise
 
 from typing import Optional, Dict, Any
-import dapitains.metadata.classes as abstracts
+import dapytains.metadata.classes as abstracts
 import json
 
 
