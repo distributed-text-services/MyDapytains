@@ -16,6 +16,7 @@ from dapytains.tei.document import Document
 from dapytains.errors import InvalidRangeOrder
 from dapytains.app.database import db, Collection, Navigation
 from dapytains.app.navigation import get_nav, get_member_by_path
+from dapytains.app.transformer import Transformer, GeneralisticXSLTransformer
 
 
 def inject_json(collection: Collection, templates) -> Dict:
@@ -82,7 +83,7 @@ def collection_view(
     }, ), mimetype="application/ld+json", status=200)
 
 
-def document_view(resource, ref, start, end, tree) -> Response:
+def document_view(resource, ref, start, end, tree, media, transformer: Transformer) -> Response:
     if not resource:
         return msg_4xx("Resource parameter was not provided")
 
@@ -117,14 +118,11 @@ def document_view(resource, ref, start, end, tree) -> Response:
         return Response(content, mimetype="application/xml")
 
     doc = Document(collection.filepath)
-    return Response(
-        ET.tostring(doc.get_passage(
-            ref_or_start=ref or start,
-            end=end,
-            tree=tree
-        ), encoding=str),
-        mimetype="application/xml"
-    )
+    passage = doc.get_passage(ref_or_start=ref or start, end=end, tree=tree)
+    if media != "application/xml":
+        return transformer.transform(media, collection, passage)
+    else:
+        return Response(ET.tostring(passage, encoding=str), mimetype="application/xml")
 
 
 def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, uritemplate.URITemplate]) -> Response:
@@ -199,7 +197,8 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
 def create_app(
         app: Flask,
         base_uri: str,
-        use_query: bool = False
+        use_query: bool = False,
+        media_transformer: Transformer = Transformer()
 ) -> (Flask, SQLAlchemy):
     """
 
@@ -257,7 +256,8 @@ def create_app(
         start = request.args.get("start")
         end = request.args.get("end")
         tree = request.args.get("tree")
-        return document_view(resource, ref, start, end, tree)
+        media = request.args.get("media")
+        return document_view(resource, ref, start, end, tree, media, media_transformer)
 
     return app, db
 
