@@ -119,7 +119,7 @@ def document_view(resource, ref, start, end, tree, media, transformer: Transform
 
     doc = Document(collection.filepath)
     passage = doc.get_passage(ref_or_start=ref or start, end=end, tree=tree)
-    if media != "application/xml":
+    if media and media != "application/xml":
         return transformer.transform(media, collection, passage)
     else:
         return Response(ET.tostring(passage, encoding=str), mimetype="application/xml")
