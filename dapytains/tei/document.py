@@ -87,14 +87,10 @@ def _get_text(context, xpath: str) -> Optional[str]:
 def _get_sibling_xpath(node_xpath: str, prefix: str = ".", ancestor: str = "") -> str:
     if node_xpath == "node()":
         return "./following-sibling::node()"
-    return (f"."
-            f"/following-sibling::node()"
-            f"["
-            f"("
-            f"following-sibling::*[{prefix}/descendant-or-self::{node_xpath}] or {prefix}//{node_xpath}"
-            f") "
-            f"and not(self::{node_xpath})"
-            f"]")
+
+    return (f"let $end := following-sibling::node()[{prefix}/descendant-or-self::{node_xpath}] "
+            f"return (./following-sibling::node() [. << $end])")
+
 
 
 def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode) -> None:
@@ -126,7 +122,7 @@ declare default element namespace 'http://www.tei-c.org/ns/1.0';
 declare option output:omit-xml-declaration 'yes';
 declare function local:prune($node) {
   if ($node instance of element()) then 
-    let $before := $node/node()[. << $node/descendant-or-self::"""+milestone+"""]
+    let $before := $node/node()[. << $node/descendant-or-self::"""+milestone+"""[1]]
     return  (: Missing return here :)
       if (not($node/descendant-or-self::"""+milestone+""")) then $node
       else element {name($node)} {
@@ -250,12 +246,13 @@ def _treat_siblings(
     if ancestor_list:
         loc_xpath += f"{reverse_ancestor(ancestor_list[::-1])}"
 
-    if xproc.effective_boolean_value(f"not(following-sibling::{loc_xpath} or .//{loc_xpath} or following-sibling::*[{loc_xpath}])"):
+    if xproc.effective_boolean_value(f"not(following-sibling::node()[descendant-or-self::{loc_xpath}] or .//{loc_xpath})"):
         new_xpath = _get_sibling_xpath("node()")
     else:
         new_xpath = _get_sibling_xpath(loc_xpath)
 
-    for node in xpath_eval(xproc, new_xpath):
+    next_nodes = xpath_eval(xproc, new_xpath)
+    for node in next_nodes:
         if node.node_kind_str == "text":
             if not last_node.tail:
                 last_node.tail = _get_text(node, ".")
@@ -269,6 +266,16 @@ def _treat_siblings(
                 )
             else:
                 last_node = copy_node(node, include_children=True, parent=last_node.getparent())
+
+    if next_nodes and loc_xpath != "node()":
+        sibling_with_data = xproc.evaluate_single(f"following-sibling::node()[descendant::{loc_xpath}]")
+        if sibling_with_data is not None:
+            copy_node(
+                sibling_with_data,
+                include_children=True,
+                parent=last_node.getparent(),
+                remove_milestone=xpath
+            )
 
 
 def xpath_eval(proc: PyXPathProcessor, xpath) -> List:
@@ -423,7 +430,6 @@ def reconstruct_doc(
             # Check if the first element is the same as queue_end
             preview, *_ = xpath_walk(queue_end)
             xproc.set_context(xdm_item=result_end)
-            print(f"head(./element()[1]) is head({preview})")
 
             reconstruct_doc(
                 root=result_end,

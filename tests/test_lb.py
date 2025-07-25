@@ -2,6 +2,7 @@ import os.path
 import lxml.etree as et
 from lxml import objectify
 from dapytains.tei.document import Document, reconstruct_doc,  normalize_xpath, xpath_split
+from dapytains.constants import get_xpath_proc
 
 p = os.path.dirname(os.path.abspath(__file__))
 
@@ -227,11 +228,51 @@ def test_double_matching_lb_as_range():
 </TEI>"""
     assert _to_string(x) == _to_string(doc.get_passage("2", '5', tree="default"))
 
-if __name__ == "__main__":
-    doc = Document(os.path.join(p, "tei/lb_diff_ab.xml"))
+
+def test_long_files_even():
+    from dapytains.constants import PROCESSOR
+    document_builder = PROCESSOR.new_document_builder()
+    xdm_node = document_builder.parse_xml(xml_text=f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader>
+     <encodingDesc>
+        <refsDecl default="true" n="default">
+           <citeStructure match="/TEI/text/body//lb" use="@n" unit="line"/>
+        </refsDecl>
+     </encodingDesc></teiHeader><text><body>
+{' '.join(['<lb n="' + str(i) + '"/>'  for i in range(10000)])}
+</body>
+</text>
+</TEI>""")
     x = reconstruct_doc(
-        doc.xml,
-        start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
-        end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="/TEI/text/body/div/ab/lb[@n='4']//following-sibling::node()[following-sibling::lb[@n='5']]"
+        xdm_node,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='400']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='499']")),
+        end_siblings="lb[@n='500']",
     )
+    assert _to_string(x) == f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+{' '.join(['<lb n="' + str(i) + '"/>'  for i in range(400, 500)])} </body>
+</text>
+</TEI>"""
+
+def test_long_files_uneven():
+    from dapytains.constants import PROCESSOR
+    document_builder = PROCESSOR.new_document_builder()
+    xdm_node = document_builder.parse_xml(xml_text=f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader>
+     <encodingDesc>
+        <refsDecl default="true" n="default">
+           <citeStructure match="/TEI/text/body//lb" use="@n" unit="line"/>
+        </refsDecl>
+     </encodingDesc></teiHeader><text><body>
+{' '.join(['<lb n="' + str(i) + '"/>' if i != 500 else '<a>b<lb n="'+str(i)+'" /></a>' for i in range(10000)])}
+</body>
+</text>
+</TEI>""")
+    x = reconstruct_doc(
+        xdm_node,
+        start_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='400']")),
+        end_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='499']")),
+        end_siblings="lb[@n='500']",
+    )
+    assert _to_string(x) == f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+{' '.join(['<lb n="' + str(i) + '"/>' if i != 499 else '<lb n="' + str(i) + '"/> <a>b</a>' for i in range(400, 500)])} </body>
+</text>
+</TEI>"""
