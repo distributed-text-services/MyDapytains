@@ -5,6 +5,7 @@ from flask import Response
 from .database import Collection
 from dataclasses import field
 from saxonche import PySaxonProcessor, PyXsltExecutable
+from dapytains.constants import PROCESSOR
 
 
 
@@ -29,20 +30,17 @@ class GeneralisticXSLTransformer(Transformer):
         self.xslts = xslts
         self.active_xslts: Dict[str, PyXsltExecutable] = {}
         self.mapping: Dict[str, str] = media_type_mapping or {}
-        with PySaxonProcessor(license=False) as proc:
-            for key, xsl_path in xslts.items():
-                try:
-                    compiler = proc.new_xslt_compiler()
-                    self.active_xslts[key]  = compiler.compile_stylesheet(stylesheet_file=xsl_path)
-                except Exception as e:
-                    print(f"Error compiling {xsl_path}: {e}")
+        for key, xsl_path in xslts.items():
+            try:
+                compiler = PROCESSOR.new_xslt30_processor()
+                self.active_xslts[key]  = compiler.compile_stylesheet(stylesheet_file=xsl_path)
+            except Exception as e:
+                print(f"Error compiling {xsl_path}: {e}")
 
     def transform(self, media: str, collection: Collection, document: et.ElementTree) -> Response:
         if media not in self.supported_media_types:
             return super().transform(media, collection, document)
 
-        transformer = self.active_xslts[media].load()
-        transformer.set_source_text(et.tostring(document, encoding=str))  # Pass XML as string
-        result = transformer.transform_to_string()  # or transform_to_value()
-
-        return Response(result, status=200, mimetype=self.mapping.get(media, media))
+        transformer = self.active_xslts[media]
+        document_builder = PROCESSOR.new_document_builder()
+        return Response(transformer.transform_to_string(xdm_node=document_builder.parse_xml(xml_text=et.tostring(document, encoding=str))), status=200, mimetype=self.mapping.get(media, media))
