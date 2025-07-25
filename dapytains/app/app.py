@@ -118,9 +118,7 @@ def document_view(resource, ref, start, end, tree, media, transformer: Transform
         return Response(content, mimetype="application/xml")
 
     doc = Document(collection.filepath)
-    print("Passage !")
     passage = doc.get_passage(ref_or_start=ref or start, end=end, tree=tree)
-    print(media)
     if media != "application/xml":
         return transformer.transform(media, collection, passage)
     else:
