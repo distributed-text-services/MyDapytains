@@ -2,13 +2,14 @@ from saxonche import PyXPathProcessor
 
 from dapytains.tei.citeStructure import CiteStructureParser, CitableUnit
 from dapytains.constants import PROCESSOR, get_xpath_proc, saxonlib
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Union
 from lxml.etree import fromstring, tostring, ElementTree, ElementBase
 from lxml.objectify import Element, SubElement, StringElement
 from lxml import objectify
 import re
 from dapytains.errors import UnknownTreeName
 
+COPY_UNTIL_END = -1
 _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
 
 
@@ -242,7 +243,7 @@ def _treat_siblings(
     :param prefix: Ancestor path for the sibling at this point
     """
     xproc = get_xpath_proc(context_node)
-    loc_xpath = xpath
+    loc_xpath = "node()" if xpath == COPY_UNTIL_END else xpath
     if ancestor_list:
         loc_xpath += f"{reverse_ancestor(ancestor_list[::-1])}"
 
@@ -296,8 +297,8 @@ def reconstruct_doc(
     start_xpath: List[str],
     new_tree: Optional[Element] = None,
     end_xpath: Optional[List[str]] = None,
-    start_siblings: Optional[str] = None,
-    end_siblings: Optional[str] = None,
+    start_siblings: Optional[Union[str, int]] = None,
+    end_siblings: Optional[Union[str, int]] = None,
     copy_until: bool = False
 ) -> Element:
     """ Loop over passages to construct and increment new tree given a parent and XPaths
@@ -308,8 +309,8 @@ def reconstruct_doc(
     :type start_xpath: [str]
     :param end_xpath: List of xpath elements
     :type end_xpath: [str]
-    :param start_siblings: If siblings of starts need to be captured, provide the XPATH here
-    :param end_siblings: If siblings of end need to be captured, provide XPath here.
+    :param start_siblings: If siblings of starts need to be captured, provide the XPATH here. If == COPY_UNTIL_END, copy until ends
+    :param end_siblings: If siblings of end need to be captured, provide XPath here.  If == COPY_UNTIL_END, copy until ends
     :return: Newly incremented tree
 
     """
@@ -492,15 +493,23 @@ class Document:
             end_xpath = self.citeStructure[tree].generate_xpath(end)
             end_xpath_norm = normalize_xpath(xpath_split(end_xpath))
             if self.xpath_processor.effective_boolean_value(f"count({end_xpath}) and count({end_xpath}/node())=0"):
-                next_ref = self.get_next(tree, end).ref
-                next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
-                end_sibling = next_ref_xpath.strip("/")
+                next_ref = self.get_next(tree, end)
+                if next_ref:
+                    next_ref = next_ref.ref
+                    next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
+                    end_sibling = next_ref_xpath.strip("/")
+                else:
+                    end_sibling = COPY_UNTIL_END
         else:
             end_xpath_norm = start_xpath_norm
             if self.xpath_processor.effective_boolean_value(f"count({start_xpath}) and count({start_xpath}/node())=0"):
-                next_ref = self.get_next(tree, start).ref
-                next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
-                start_sibling = next_ref_xpath.strip("/")
+                next_ref = self.get_next(tree, start)
+                if next_ref:
+                    next_ref = next_ref.ref
+                    next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
+                    start_sibling = next_ref_xpath.strip("/")
+                else:
+                    start_sibling = COPY_UNTIL_END
 
 
         root = reconstruct_doc(

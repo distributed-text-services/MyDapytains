@@ -118,3 +118,63 @@ def test_multiple_trees():
                     ) == tostring(doc.get_passage("1", tree=None), encoding=str), "Both system work"
     assert tostring(doc.get_passage("1", tree=None), encoding=str
                     ) == tostring(doc.get_passage("1", tree="nums"), encoding=str), "Naming and default work"
+
+
+def test_get_next_on_last():
+    """Check that having multiple trees work"""
+    doc = Document(f"{local_dir}/lb_same_ab.xml")
+    assert tostring(
+        doc.get_passage(tree=None, ref_or_start="5"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+         '<body>\n'
+         '<div xml:lang="grc" type="edition" xml:space="preserve">\n'
+         '<ab>\n'
+         '<lb n="5"/>εὖ εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία.\n'
+         '</ab>\n'
+         '</div>\n'
+         '</body>\n'
+         '</text>\n'
+         '</TEI>'), "Default works"
+    assert tostring(
+        doc.get_passage(tree=None, ref_or_start="4", end="5"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+         '<body>\n'
+         '<div xml:lang="grc" type="edition" xml:space="preserve">\n'
+         '<ab>\n'
+         '<lb n="4"/>ἔχειν.  εὐορκοῦντι μέν μοι\n'
+         '<lb n="5"/>εὖ εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία.\n'
+         '</ab>\n'
+         '</div>\n'
+         '</body>\n'
+         '</text>\n'
+         '</TEI>'), "Default works"
+
+    # And now uneven
+    doc = Document(f"{local_dir}/lb_uneven_ab.xml")
+    assert tostring(
+        doc.get_passage(tree=None, ref_or_start="7"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+         '<body>\n'
+         '<div xml:lang="grc" type="edition" xml:space="preserve">\n'
+         '<ab>\n'
+         '<w><lb n="7"/>εὖ</w> εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία.\n'
+         '</ab>\n'
+         '</div>\n'
+         '</body>\n'
+         '</text>\n'
+         '</TEI>'), "Default works"
+    assert tostring(
+        doc.get_passage(tree=None, ref_or_start="6", end="7"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+         '<body>\n'
+         '<div xml:lang="grc" type="edition" xml:space="preserve">\n'
+         '<ab>\n'
+         '<w><lb n="6"/>a</w> b\n'
+         '<w><lb n="7"/>εὖ</w> εἴη, ἐφιορκοῦντι δὲ τὰ ἐναντία.\n'
+         '</ab>\n'
+         '</div>\n'
+         '</body>\n'
+         '</text>\n'
+         '</TEI>'), "Default works"
+
+
