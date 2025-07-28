@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from collections import namedtuple, defaultdict
 from functools import cmp_to_key
-from dapytains.constants import get_xpath_proc, saxonlib
+from dapytains.processor import get_xpath_proc, saxonlib
 
 
 @dataclass
@@ -83,8 +83,8 @@ class CitableUnit:
 _simple_node = namedtuple("SimpleNode", ["citation", "xpath", "struct"])
 
 
-def get_children_cite_structures(elem: saxonlib.PyXdmNode) -> List[saxonlib.PyXdmNode]:
-    xpath = get_xpath_proc(elem=elem).evaluate("./citeStructure")
+def get_children_cite_structures(elem: saxonlib.PyXdmNode, processor: saxonlib.PySaxonProcessor) -> List[saxonlib.PyXdmNode]:
+    xpath = get_xpath_proc(elem=elem, processor=processor).evaluate("./citeStructure")
     if xpath is not None:
         return list(iter(xpath))
     return []
@@ -96,11 +96,12 @@ class CiteStructureParser:
     ToDo: Add the ability to use CiteData. This will mean moving from len(element) to len(element.xpath("./citeStructure"))
     ToDo: Add the ability to use citationTree labels
     """
-    def __init__(self, root: saxonlib.PyXdmNode):
+    def __init__(self, root: saxonlib.PyXdmNode, processor: saxonlib.PySaxonProcessor):
         self.root = root
+        self.processor: saxonlib.PySaxonProcessor = processor
         self.xpath_matcher: Dict[str, str] = {}
         self.regex_pattern, cite_structure = self.build_regex_and_xpath(
-            get_xpath_proc(self.root).evaluate_single("./citeStructure[1]")
+            get_xpath_proc(self.root, processor=processor).evaluate_single("./citeStructure[1]")
         )
         self.structure: CitableStructure = cite_structure
 
@@ -129,9 +130,9 @@ class CiteStructureParser:
             delim=delim or ""
         )
 
-        children_cite_struct = get_children_cite_structures(element)
+        children_cite_struct = get_children_cite_structures(element, processor=self.processor)
 
-        citeDatas = get_xpath_proc(element).evaluate("./citeData")
+        citeDatas = get_xpath_proc(element, processor=self.processor).evaluate("./citeData")
         if citeDatas is not None:
             for element in citeDatas:
                 cite_structure.metadata.append(CiteData(
@@ -229,7 +230,7 @@ class CiteStructureParser:
             unit: Optional[CitableUnit] = None,
             level: int = 1
     ) -> List[CitableUnit]:
-        xpath_proc = get_xpath_proc(elem=root)
+        xpath_proc = get_xpath_proc(elem=root, processor=self.processor)
         prefix = (unit.ref + structure.delim) if unit else ""
         units = []
         xpath_prefix = "./" if unit else ""
@@ -244,7 +245,8 @@ class CiteStructureParser:
             )
 
             if structure.metadata:
-                local_xproc = get_xpath_proc(xpath_proc.evaluate_single(self.generate_xpath(child.ref)))
+                local_xproc = get_xpath_proc(xpath_proc.evaluate_single(self.generate_xpath(child.ref)),
+                                             processor=self.processor)
                 for cite_data in structure.metadata:
                     if metadata_found := local_xproc.evaluate(cite_data.xpath):
                         for metadata_value in metadata_found:
@@ -274,7 +276,7 @@ class CiteStructureParser:
             unit: Optional[CitableUnit] = None,
             level: int = 1
     ) -> List[CitableUnit]:
-        xpath_proc = get_xpath_proc(elem=root)
+        xpath_proc = get_xpath_proc(elem=root, processor=self.processor)
         prefix = (unit.ref) if unit else ""  # ToDo: Reinject delim
         units = []
         xpath_prefix = "./" if unit else ""

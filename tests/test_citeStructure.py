@@ -1,11 +1,9 @@
 from dapytains.tei.citeStructure import CiteStructureParser
-from dapytains.constants import PROCESSOR, get_xpath_proc
+from dapytains.processor import get_processor, get_xpath_proc
 import os.path
 import pytest
 
 local_dir = os.path.join(os.path.dirname(__file__), "tei")
-
-
 
 
 def test_parsing():
@@ -43,10 +41,11 @@ def test_parsing():
     </text>
     </TEI>
     """
-    TEI = PROCESSOR.parse_xml(xml_text=xml_string)
-    xpath = get_xpath_proc(elem=TEI)
+    processor = get_processor()
+    TEI = processor.parse_xml(xml_text=xml_string)
+    xpath = get_xpath_proc(elem=TEI, processor=processor)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/encodingDesc/refsDecl[1]")
-    parser = CiteStructureParser(citeStructure)
+    parser = CiteStructureParser(citeStructure, processor=processor)
 
     # Generate XPath for "Luke 1:2"
     assert parser.generate_xpath("Luke 1:2") == "//body/div[@n='Luke']/div[position()=1]/div[position()=2]"
@@ -80,10 +79,11 @@ def test_parsing():
     ]
 
 def test_cite_data():
-    TEI = PROCESSOR.parse_xml(xml_file_name=f"{local_dir}/test_citeData.xml")
-    xpath = get_xpath_proc(elem=TEI)
+    processor = get_processor()
+    TEI = processor.parse_xml(xml_file_name=f"{local_dir}/test_citeData.xml")
+    xpath = get_xpath_proc(elem=TEI, processor=processor)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/encodingDesc/refsDecl[1]")
-    parser = CiteStructureParser(citeStructure)
+    parser = CiteStructureParser(citeStructure, processor=processor)
     refs = parser.find_refs(root=TEI, structure=parser.structure)
     refs = [ref.json() for ref in refs]
     assert refs == [
@@ -104,10 +104,11 @@ def test_cite_data():
 
 
 def test_advanced_cite_data():
-    TEI = PROCESSOR.parse_xml(xml_file_name=f"{local_dir}/test_citeData_two_levels.xml")
-    xpath = get_xpath_proc(elem=TEI)
+    processor = get_processor()
+    TEI = processor.parse_xml(xml_file_name=f"{local_dir}/test_citeData_two_levels.xml")
+    xpath = get_xpath_proc(elem=TEI, processor=processor)
     citeStructure = xpath.evaluate_single("/TEI/teiHeader/encodingDesc/refsDecl[1]")
-    parser = CiteStructureParser(citeStructure)
+    parser = CiteStructureParser(citeStructure, processor=processor)
     refs = parser.find_refs(root=TEI, structure=parser.structure)
     refs = [ref.json() for ref in refs]
     assert refs == [

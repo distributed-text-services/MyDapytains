@@ -2,10 +2,9 @@ import os.path
 import lxml.etree as et
 from lxml import objectify
 from dapytains.tei.document import Document, reconstruct_doc,  normalize_xpath, xpath_split
-from dapytains.constants import get_xpath_proc
+from dapytains.processor import get_processor
 
 p = os.path.dirname(os.path.abspath(__file__))
-
 
 def _to_string(x: et.ElementBase) -> str:
     objectify.deannotate(x, cleanup_namespaces=True)
@@ -19,6 +18,7 @@ def test_simple_single_lb():
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         start_siblings="lb[@n='3']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -39,7 +39,8 @@ def test_simple_range_lb():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="lb[@n='5']"
+        end_siblings="lb[@n='5']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -63,7 +64,8 @@ def test_overlapping_range_lb():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="lb[@n='5']"
+        end_siblings="lb[@n='5']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -90,7 +92,8 @@ def test_overlapping_range_lb_simulate_double_slash():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab/lb[@n='4']")),
-        end_siblings="lb[@n='5']"
+        end_siblings="lb[@n='5']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -115,7 +118,8 @@ def test_overlapping_single_uneven_lb_at_the_start():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
-        start_siblings="lb[@n='3']"
+        start_siblings="lb[@n='3']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -136,7 +140,8 @@ def test_overlapping_single_uneven_lb_at_the_end():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='1']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='1']")),
-        start_siblings="lb[@n='2']"
+        start_siblings="lb[@n='2']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -157,7 +162,8 @@ def test_overlapping_single_uneven_lb_range():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div/ab//lb[@n='5']")),
-        end_siblings="lb[@n='6']"
+        end_siblings="lb[@n='6']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
 <body>
@@ -187,7 +193,8 @@ def test_double_matching_lb_as_ref():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div[@type='edition']//lb[@n='1']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div[@type='edition']//lb[@n='1']")),
-        start_siblings="lb[@n='2']"
+        start_siblings="lb[@n='2']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
         <body>
@@ -206,7 +213,8 @@ def test_double_matching_lb_as_range():
         doc.xml,
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body/div[@type='edition']//lb[@n='2']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body/div[@type='edition']//lb[@n='5']")),
-        end_siblings="lb[@n='6']"
+        end_siblings="lb[@n='6']",
+        processor=doc.xml_processor
     )
     assert _to_string(x) == """<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>
         <body>
@@ -230,8 +238,8 @@ def test_double_matching_lb_as_range():
 
 
 def test_long_files_even():
-    from dapytains.constants import PROCESSOR
-    document_builder = PROCESSOR.new_document_builder()
+    processor = get_processor()
+    document_builder = processor.new_document_builder()
     xdm_node = document_builder.parse_xml(xml_text=f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader>
      <encodingDesc>
         <refsDecl default="true" n="default">
@@ -247,6 +255,7 @@ def test_long_files_even():
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='400']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='499']")),
         end_siblings="lb[@n='500']",
+        processor=processor
     )
     assert _to_string(x) == f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
 {' '.join(['<lb n="' + str(i) + '"/>'  for i in range(400, 500)])} </body>
@@ -254,8 +263,8 @@ def test_long_files_even():
 </TEI>"""
 
 def test_long_files_uneven():
-    from dapytains.constants import PROCESSOR
-    document_builder = PROCESSOR.new_document_builder()
+    processor = get_processor()
+    document_builder = processor.new_document_builder()
     xdm_node = document_builder.parse_xml(xml_text=f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader>
      <encodingDesc>
         <refsDecl default="true" n="default">
@@ -271,6 +280,7 @@ def test_long_files_uneven():
         start_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='400']")),
         end_xpath=normalize_xpath(xpath_split("/TEI/text/body//lb[@n='499']")),
         end_siblings="lb[@n='500']",
+        processor=processor
     )
     assert _to_string(x) == f"""<TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
 {' '.join(['<lb n="' + str(i) + '"/>' if i != 499 else '<lb n="' + str(i) + '"/> <a>b</a>' for i in range(400, 500)])} </body>

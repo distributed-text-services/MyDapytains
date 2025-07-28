@@ -5,7 +5,7 @@ from flask import Response
 from .database import Collection
 from dataclasses import field
 from saxonche import PySaxonProcessor, PyXsltExecutable
-from dapytains.constants import PROCESSOR
+from dapytains.processor import get_processor
 
 
 
@@ -30,9 +30,10 @@ class GeneralisticXSLTransformer(Transformer):
         self.xslts = xslts
         self.active_xslts: Dict[str, PyXsltExecutable] = {}
         self.mapping: Dict[str, str] = media_type_mapping or {}
+        self.processor = get_processor()
         for key, xsl_path in xslts.items():
             try:
-                compiler = PROCESSOR.new_xslt30_processor()
+                compiler = self.processor.new_xslt30_processor()
                 self.active_xslts[key]  = compiler.compile_stylesheet(stylesheet_file=xsl_path)
             except Exception as e:
                 print(f"Error compiling {xsl_path}: {e}")
@@ -42,5 +43,11 @@ class GeneralisticXSLTransformer(Transformer):
             return super().transform(media, collection, document)
 
         transformer = self.active_xslts[media]
-        document_builder = PROCESSOR.new_document_builder()
-        return Response(transformer.transform_to_string(xdm_node=document_builder.parse_xml(xml_text=et.tostring(document, encoding=str))), status=200, mimetype=self.mapping.get(media, media))
+        document_builder = self.processor.new_document_builder()
+        return Response(
+            transformer.transform_to_string(
+                xdm_node=document_builder.parse_xml(xml_text=et.tostring(document, encoding=str))
+            ),
+            status=200,
+            mimetype=self.mapping.get(media, media)
+        )
