@@ -4,7 +4,7 @@ from dapytains.tei.citeStructure import CiteStructureParser, CitableUnit
 from dapytains.processor import get_xpath_proc, get_processor, saxonlib
 from typing import Optional, List, Tuple, Dict, Union
 from lxml.etree import fromstring, tostring, ElementTree, ElementBase
-from lxml.objectify import Element, SubElement, StringElement
+from lxml.objectify import Element, SubElement, StringElement, ObjectifiedElement
 from lxml import objectify
 import re
 from dapytains.errors import UnknownTreeName
@@ -123,7 +123,7 @@ def _prune(node: saxonlib.PyXdmNode, milestone: str, processor: saxonlib.PySaxon
 declare default element namespace 'http://www.tei-c.org/ns/1.0';
 declare option output:omit-xml-declaration 'yes';
 declare function local:prune($node) {
-  if ($node instance of element()) then 
+  if ($node instance of element()) then
     let $before := $node/node()[. << $node/descendant-or-self::"""+milestone+"""[1]]
     return  (: Missing return here :)
       if (not($node/descendant-or-self::"""+milestone+""")) then $node
@@ -174,8 +174,8 @@ def copy_node(
             return element
         elif parent is not None:
             if not parent.getchildren():
-                if not isinstance(parent, StringElement):
-                    parent.text += element
+                if not isinstance(parent, (StringElement, ObjectifiedElement)):
+                    parent.text = (parent.text or "") + element
             else:
                 parent.getchildren()[-1].tail = element
             return parent
@@ -201,7 +201,6 @@ def copy_node(
         _add_space_tail(element, node, processor=processor)
     else:
         element = Element(**kwargs)
-
 
     return element
 
@@ -321,7 +320,7 @@ def reconstruct_doc(
 
     """
     current_start, queue_start, ancestor_start = xpath_walk(start_xpath)
-    xproc = get_xpath_proc(root, processor=processor)
+    xpath_proc = get_xpath_proc(root, processor=processor)
     # There are too possibilities:
     #  1. What we call loop is when the first element that match this XPath, such as "//body", then we will need
     #     to loop over ./TEI, then ./text and finally we'll get out of the loop at body.
@@ -348,16 +347,19 @@ def reconstruct_doc(
     # If they don't match, maybe an XPath comparison of both items will tell us more
     if not current_1_is_current_2:
         # If we don't, we do an XPath check
-        current_1_is_current_2 = xproc.effective_boolean_value(f"head({current_start}) is head({current_end})")
+        current_1_is_current_2 = xpath_proc.effective_boolean_value(f"head({current_start}) is head({current_end})")
 
+    # We check first whether we have the same root
     if current_1_is_current_2:
 
         # If we need to copy preceding node, because we got uneven weird things
-        if copy_until:
-            xpath = get_xpath_proc(root, processor=processor)
-            for sibling in xpath_eval(xpath, f"./node()[following-sibling::{clean_xpath_for_following(current_start, start_is_traversing)}]"):
+        if new_tree is not None and copy_until:
+            _sib_xpath = clean_xpath_for_following(current_start, start_is_traversing)
+            for sibling in xpath_eval(
+                    xpath_proc,
+                    f"./node()[following-sibling::{_sib_xpath}]"
+            ):
                 copy_node(sibling, include_children=True, parent=new_tree, processor=processor)
-
 
         # We get the children if the XPath stops here
         # We copy the node we found
@@ -367,10 +369,6 @@ def reconstruct_doc(
             parent=new_tree,
             processor=processor
         )
-
-        # If that's the first element EVER, then we make this child the root node of our new tree
-        if new_tree is None:
-            new_tree = copied_node
 
         # Given that both XPath returns the same node, we still need to check if end is looping
         #   We optimize by avoiding this check when start and end are the same
@@ -390,7 +388,65 @@ def reconstruct_doc(
         if start_siblings:
             _treat_siblings(context_node=result_start, xpath=start_siblings, last_node=copied_node,
                             ancestor_list=ancestor_start, processor=processor)
+        return copied_node
     else:
+        # There is a situation where we do not have the same XPath, but we have the same node,
+        # typically in // situations
+        current_root_positional_path = generate_root_path(xpath_proc, f"self::node()")
+
+        # We did not even have the same root, most likely because of a citeStructure match=//p use=n
+        #  which leads to current_root_positional_path to be empty (because the xpath to the root
+        #  is empty).
+        if not current_root_positional_path:
+            common_node = xpath_proc.evaluate_single("/*")
+            new_tree = copy_node(
+                common_node, processor=processor,
+                include_children=False, parent=new_tree
+            )
+
+            # Given that both XPath returns the same node, we still need to check if end is looping
+            #   We optimize by avoiding this check when start and end are the same
+            if start_xpath != end_xpath and is_traversing_xpath(root, current_end, processor=processor):
+                queue_end = end_xpath
+
+            reconstruct_doc(
+                common_node,
+                new_tree=new_tree,
+                start_xpath=queue_start,
+                end_xpath=queue_end,
+                start_siblings=start_siblings,
+                end_siblings=end_siblings,
+                processor=processor
+            )
+            return new_tree
+
+        # Otherwise, we check if we do not have similar node even if we don't have the same XPath
+        xpath_length = len(current_root_positional_path)
+        current_start_positional_path = generate_root_path(xpath_proc, f"{current_start}")
+        current_end_positional_path = generate_root_path(xpath_proc, f"{current_end}")
+        if current_start_positional_path[:xpath_length+1] == current_end_positional_path[:xpath_length+1]:
+            common_node = xpath_proc.evaluate_single("".join(current_start_positional_path[:xpath_length+1]))
+            new_tree = copy_node(
+                common_node, processor=processor,
+                include_children=False, parent=new_tree
+            )
+
+            # Given that both XPath returns the same node, we still need to check if end is looping
+            #   We optimize by avoiding this check when start and end are the same
+            if start_xpath != end_xpath and is_traversing_xpath(root, current_end, processor=processor):
+                queue_end = end_xpath
+
+            new_tree = reconstruct_doc(
+                common_node,
+                new_tree=new_tree,
+                start_xpath=queue_start,
+                end_xpath=queue_end,
+                start_siblings=start_siblings,
+                end_siblings=end_siblings,
+                processor=processor
+            )
+            return new_tree
+
         # If we still don't have the same children as a result of start and end,
         #   We make sure to retrieve the element at the end of 2
         result_end, end_is_traversing = xpath_walk_step(root, current_end, processor=processor)
@@ -439,7 +495,7 @@ def reconstruct_doc(
         if queue_end:
             # Check if the first element is the same as queue_end
             preview, *_ = xpath_walk(queue_end)
-            xproc.set_context(xdm_item=result_end)
+            xpath_proc.set_context(xdm_item=result_end)
 
             reconstruct_doc(
                 root=result_end,
@@ -447,14 +503,42 @@ def reconstruct_doc(
                 start_xpath=queue_end,
                 end_xpath=queue_end,
                 start_siblings=end_siblings,
-                copy_until=not xproc.effective_boolean_value(f"head(./element()[1]) is head({preview})"),
+                copy_until=not xpath_proc.effective_boolean_value(f"head(./element()[1]) is head({preview})"),
                 processor=processor
             )
         if end_siblings:
             _treat_siblings(context_node=result_end, xpath=end_siblings, last_node=node, ancestor_list=ancestor_end,
                             processor=processor)
-
     return new_tree
+
+def generate_path(processor: PyXPathProcessor, xpath: str) -> str:
+    """Generate the positional xpath of an element
+
+    e.g. `generate_path(proc, "//p[@n='1'")` -> /TEI[1]/text[1]/body[1].../p[1]
+    """
+    return str(
+        processor.evaluate_single(
+            f"string-join(\n"
+            f"          for $n in ({xpath}/ancestor-or-self::*)\n"
+            f"          return\n"
+            f"            concat('/', name($n), '[', 1 + count($n/preceding-sibling::*[name() = name($n)]), ']'),\n"
+            f"          ''\n"
+            f"        )"
+        )
+    )
+
+def generate_root_path(processor: PyXPathProcessor, xpath: str) -> List[str]:
+    """ Get the root element of the current path
+
+    e.g. `generate_root_path(proc, "//p[@n='1'")` -> [/TEI[1]. /text[1], ....]
+    """
+    return list(map(str, xpath_eval(processor,
+            f"          for $n in ({xpath}/ancestor-or-self::*)\n"
+            f"          return\n"
+            f"            concat('/', name($n), '[', 1 + count($n/preceding-sibling::*[name() = name($n)]), ']')"
+        )))
+
+
 
 
 class Document:

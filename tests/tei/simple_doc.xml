@@ -1,0 +1,20 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <encodingDesc>
+            <refsDecl>
+                <citeStructure unit="paragraph" match="//p" use="@n"/>
+            </refsDecl>
+        </encodingDesc>
+    </teiHeader>
+    <text>
+        <front>
+        </front>
+        <body>
+            <div>
+                <p n="1">Lorem</p>
+                <p n="2">Ipsum</p>
+                <p n="3">Dolorem</p>
+            </div>
+        </body>
+    </text>
+</TEI>

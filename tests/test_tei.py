@@ -192,3 +192,32 @@ def test_get_next_on_last():
          '</text>\n'
          '</TEI>'), "Default works"
 
+
+def test_passage_simple():
+    """Test that a single passage matching works"""
+    doc = Document(f"{local_dir}/simple_doc.xml")
+    assert tostring(
+        doc.get_passage("1"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '        <body>\n'
+ '            <div>\n'
+ '                <p n="1">Lorem</p>\n'
+ '                </div>\n'
+ '        </body>\n'
+ '    </text>\n'
+ '</TEI>')
+
+def test_passage_ranger_simple():
+    """Test that a single range passage matching works"""
+    doc = Document(f"{local_dir}/simple_doc.xml")
+    assert tostring(
+        doc.get_passage("2", "3"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '        <body>\n'
+ '            <div>\n'
+ '                <p n="2">Ipsum</p>\n'
+ '                <p n="3">Dolorem</p>\n'
+ '            </div>\n'
+ '        </body>\n'
+ '    </text>\n'
+ '</TEI>')
