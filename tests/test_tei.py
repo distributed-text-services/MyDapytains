@@ -221,3 +221,34 @@ def test_passage_ranger_simple():
  '        </body>\n'
  '    </text>\n'
  '</TEI>')
+
+
+def test_xml_entity():
+    """Test that a single range passage matching works"""
+    doc = Document(f"{local_dir}/xml_entity.xml")
+    assert tostring(
+        doc.get_passage("2", "3"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '        <body>\n'
+ '            <div>\n'
+ '                <p n="2">&amp; Ipsum</p>\n'
+ '                <p n="3">Dolorem</p>\n'
+ '            </div>\n'
+ '        </body>\n'
+ '    </text>\n'
+ '</TEI>')
+    doc = Document(f"{local_dir}/xml_entity_tail.xml")
+    assert tostring(
+        doc.get_passage("2", "3"), encoding=str
+    ) == ('<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+ '        <body>\n'
+ '            <div>\n'
+ '                <p>\n'
+ '                <lb n="2"/>&amp; Ipsum\n'
+ '                <lb n="3"/>Dolorem &amp;\n'
+ '                </p>\n'
+ '            </div>\n'
+ '        </body>\n'
+ '    </text>\n'
+ '</TEI>')
+

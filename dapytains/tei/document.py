@@ -7,6 +7,7 @@ from lxml.etree import fromstring, tostring, ElementTree, ElementBase
 from lxml.objectify import Element, SubElement, StringElement, ObjectifiedElement
 from lxml import objectify
 import re
+from xml.sax.saxutils import unescape
 from dapytains.errors import UnknownTreeName
 
 COPY_UNTIL_END = -1
@@ -108,12 +109,12 @@ def _add_space_tail(element: ElementBase, node: saxonlib.PyXdmNode, processor: s
                     if hasattr(element, "_setText"):
                         element._setText(content)
                     else:
-                        element.text = content
+                        element.text = unescape(content)
 
     if element.tail is None or len(element.tail) == 0:
         tail = _get_text(node, "following-sibling::node()[1]", processor=processor)
         if tail is not None and not tail.strip():
-            element.tail = str(tail)
+            element.tail = unescape(tail)
 
 
 def _prune(node: saxonlib.PyXdmNode, milestone: str, processor: saxonlib.PySaxonProcessor) -> str:
@@ -175,9 +176,9 @@ def copy_node(
         elif parent is not None:
             if not parent.getchildren():
                 if not isinstance(parent, (StringElement, ObjectifiedElement)):
-                    parent.text = (parent.text or "") + element
+                    parent.text = unescape((parent.text or "") + element)
             else:
-                parent.getchildren()[-1].tail = element
+                parent.getchildren()[-1].tail = unescape(element)
             return parent
 
     if node is None:
@@ -258,7 +259,7 @@ def _treat_siblings(
     for node in next_nodes:
         if node.node_kind_str == "text":
             if not last_node.tail:
-                last_node.tail = _get_text(node, ".", processor=processor)
+                last_node.tail = unescape(_get_text(node, ".", processor=processor))
         else:
             if xpath != "node()":
                 last_node = copy_node(

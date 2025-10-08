@@ -1,0 +1,22 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <encodingDesc>
+            <refsDecl>
+                <citeStructure unit="paragraph" match="//lb" use="@n"/>
+            </refsDecl>
+        </encodingDesc>
+    </teiHeader>
+    <text>
+        <front>
+        </front>
+        <body>
+            <div>
+                <p>
+                <lb n="1"/>Lorem
+                <lb n="2"/>&amp; Ipsum
+                <lb n="3"/>Dolorem &amp;
+                </p>
+            </div>
+        </body>
+    </text>
+</TEI>
