@@ -5,10 +5,13 @@ include .env.local
 AUTOPEP8        ?= autopep8
 COMPOSE_FILE    ?= compose.yaml
 DOCKER_COMPOSE  ?= docker compose -f $(COMPOSE_FILE)
+GUNICORN        ?= gunicorn
 PIP             ?= pip
 PYTEST          ?= pytest
 PYTHON          ?= python
 SERVER_ENV      ?= prod
+SERVER_HOST     ?= 0.0.0.0
+SERVER_PORT     ?= 5000
 VERBOSE         ?= 0
 
 COLOR_SUPPORT   ?= $(shell [ "$$(tput colors 2>/dev/null)" -ge 8 ] && echo 1 || echo 0)
@@ -46,7 +49,7 @@ help:
 
 install:
 	$(PIP) install -r requirements.txt
-ifneq ($(SERVER_ENV),"prod")
+ifneq ("$(SERVER_ENV)","prod")
 	$(PIP) install -r requirements-dev.txt
 endif
 
@@ -66,16 +69,17 @@ ifeq ($(VERBOSE),1)
 else
 	@$(MAKE) install > /dev/null
 endif
-	$(PYTHON) -m dapytains.app.app
+ifeq ("$(SERVER_ENV)","prod")
+	$(GUNICORN) -b $(SERVER_HOST):$(SERVER_PORT) dapytains.app.wsgi:app
+else
+	$(PYTHON) -m dapytains.app.wsgi
+endif
 
 test:
-ifeq ($(SERVER_ENV),"prod")
-	$(error "Tests cannot run in 'prod' environment")
-endif
 ifeq ($(VERBOSE),1)
-	$(MAKE) install
+	$(MAKE) SERVER_ENV=test install
 else
-	@$(MAKE) install > /dev/null
+	@$(MAKE) SERVER_ENV=test install > /dev/null
 endif
 	$(PYTEST) --doctest-modules --cov=dapytains --verbose
 

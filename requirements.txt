@@ -6,4 +6,4 @@ click
 uritemplate
 tqdm
 dotenv_flow
-waitress
+gunicorn

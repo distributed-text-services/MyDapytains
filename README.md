@@ -24,7 +24,7 @@ This library will:
 
 ## WebApp
 
-You can try the webapp using `python -m dapitains.app.app`. It uses test files at the moment.
+You can try the webapp using `python -m dapytains.app.wsgi`. It uses test files at the moment.
 
 ## Guidelines
 

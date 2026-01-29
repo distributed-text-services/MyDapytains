@@ -20,4 +20,4 @@ WORKDIR /app
 
 RUN make install
 
-ENTRYPOINT exec python -m dapytains.app.app
+ENTRYPOINT exec make start
