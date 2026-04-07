@@ -75,8 +75,8 @@ def collection_view(
         return msg_4xx(f"nav parameter has a wrong value {nav}", code=400)
 
     return Response(json.dumps({
-        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-        "dtsVersion": "1-alpha",
+        "@context": "https://dtsapi.org/context/v1.0.json",
+        "dtsVersion": "1.0",
         **out,
         "member": [
             member.json(inject=inject_json(member, templates=templates))
@@ -153,8 +153,8 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
 
     # Start the response
     out = {
-        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-        "dtsVersion": "1-alpha",
+        "@context": "https://dtsapi.org/context/v1.0.json",
+        "dtsVersion": "1.0",
         "@type": "Navigation",
         "@id": templates["navigation"].expand({
             "ref": ref, "down": down, "start": start, "end": end, "tree": tree
@@ -220,8 +220,8 @@ def create_app(
 
         return Response(
             json.dumps({
-                "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-                "dtsVersion": "1-alpha",
+                "@context": "https://dtsapi.org/context/v1.0.json",
+                "dtsVersion": "1.0",
                 "@id": f"{request.url_root}",
                 "@type": "EntryPoint",
                 "collection": collection_template.uri,
