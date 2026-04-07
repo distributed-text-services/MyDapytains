@@ -51,10 +51,10 @@ def test_index(client):
     response = client.get('/')
     assert response.status_code == 200
     assert response.get_json() == {
-        '@context': 'https://distributed-text-services.github.io/specifications/context/1-alpha1.json',
+        "@context": "https://dtsapi.org/context/v1.0.json",
+        "dtsVersion": "1.0",
         '@id': 'http://localhost/',
         '@type': 'EntryPoint',
-        'dtsVersion': '1-alpha',
         'collection': 'http://localhost/collection/{?id}{&nav}',
         'document': 'http://localhost/document/{?resource}{&ref,start,end,tree}',
         'navigation': 'http://localhost/navigation/{?resource}{&ref,start,end,tree,down}',
@@ -67,11 +67,11 @@ def test_collection(client):
     response = client.get(template.expand({}))
     j = response.get_json()
     assert {
-               '@context': 'https://distributed-text-services.github.io/specifications/context/1-alpha1.json',
+                '@context': 'https://dtsapi.org/context/v1.0.json',
+               'dtsVersion': '1.0',
                '@id': 'https://foo.bar/default',
                '@type': 'Collection',
                'collection': 'http://localhost/collection/?id=https%3A%2F%2Ffoo.bar%2Fdefault{&nav}',
-               'dtsVersion': '1-alpha',
                'dublinCore': {'abstract': ['This is a perfect example of an absract.',
                                            {'lang': 'fr',
                                             'value': 'Et je peux traduire en français'}]},
@@ -133,11 +133,13 @@ def test_collection(client):
     collection = uritemplate.URITemplate(j["member"][0]["collection"]).expand(
         {"id": j["member"][0]["@id"]})
     response = client.get(collection.replace(BASE_URI, ""))
-    assert {'@context': 'https://distributed-text-services.github.io/specifications/context/1-alpha1.json',
-            '@id': 'https://example.org/collection1',
+    assert {
+                '@context': 'https://dtsapi.org/context/v1.0.json',
+               'dtsVersion': '1.0',
+               '@id': 'https://example.org/collection1',
             '@type': 'Collection',
             'collection': 'http://localhost/collection/?id=https%3A%2F%2Fexample.org%2Fcollection1{&nav}',
-            'dtsVersion': '1-alpha',
+
             'dublinCore': {'creator': ['John Doe'],
                            'date': ['2023-08-24'],
                            'subject': ['History']},
