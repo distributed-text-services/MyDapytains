@@ -26,7 +26,7 @@ jobs:
         name: Clone DTS-Validator
         with:
           repository: 'mromanello/DTS-validator'
-          ref: 'v0.2.0'
+          ref: 'v0.2.2'
           path: "dts-validator"
 
       # Flask Server
