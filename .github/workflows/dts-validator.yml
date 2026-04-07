@@ -2,8 +2,6 @@ name: DTS-Validator
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 jobs:
@@ -39,7 +37,7 @@ jobs:
         run: sleep 5 # Adjust as needed
 
       - name: Install and run tests
-        run: | 
+        run: |
           cd dts-validator
           python -m venv env
           source env/bin/activate
