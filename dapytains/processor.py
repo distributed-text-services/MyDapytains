@@ -7,7 +7,7 @@ logging.info(f"Using SaxonLib {saxon_version}")
 try:
     if saxon_version == "PE":
         import saxoncpe as saxonlib
-    elif saxon_version == "PE":
+    elif saxon_version == "EE":
         import saxoncee as saxonlib
     else:
         import saxonche as saxonlib

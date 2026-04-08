@@ -2,8 +2,9 @@ import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from collections import namedtuple, defaultdict
-from functools import cmp_to_key
 from dapytains.processor import get_xpath_proc, saxonlib
+
+_pos_re = re.compile(r'\[(\d+)\]')
 
 
 @dataclass
@@ -281,15 +282,6 @@ class CiteStructureParser:
         units = []
         xpath_prefix = "./" if unit else ""
 
-        # Custom comparison function to compare nodes by document order
-        def compare_nodes_by_doc_order(node1, node2):
-            # Check if node1 precedes node2 in document order
-            precedes = xpath_proc.evaluate_single(f'{node1.xpath} << {node2.xpath}').string_value
-            if precedes == "true":
-                return -1  # node1 comes before node2
-
-            return 1
-
         unsorted = []
         for s in structure:
             unsorted.extend(
@@ -303,7 +295,19 @@ class CiteStructureParser:
             _simple_node(ref, self.generate_xpath(ref), struct)
             for ref, struct in unsorted
         ]
-        unsorted = sorted(unsorted, key=cmp_to_key(compare_nodes_by_doc_order))
+        # Generate a positional path key for each node once (O(n) JVM calls) and sort
+        # natively, rather than calling back into Saxon for every pairwise comparison
+        # (which would cost O(n log n) JVM round-trips).
+        def _doc_order_key(node):
+            # Count ALL preceding element siblings (not just same-name) so that
+            # mixed-name siblings at the same level sort in document order.
+            path_str = str(xpath_proc.evaluate_single(
+                f"string-join(for $n in ({node.xpath}/ancestor-or-self::*) "
+                f"return concat('/', name($n), '[', 1 + count($n/preceding-sibling::*), ']'), '')"
+            ))
+            return tuple(int(x) for x in _pos_re.findall(path_str))
+
+        unsorted = sorted(unsorted, key=_doc_order_key)
 
         units = []
         for elem in unsorted:

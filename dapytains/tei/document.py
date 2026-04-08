@@ -37,21 +37,19 @@ def xpath_walk(xpath: List[str]) -> Tuple[str, List[str], List[str]]:
     return current_filled, queue, [xpath[0]] if len(xpath) > 1 else []
 
 
-def is_traversing_xpath(parent: saxonlib.PyXdmNode, xpath: str, processor: saxonlib.PySaxonProcessor) -> bool:
+def is_traversing_xpath(xpath_proc: saxonlib.PyXPathProcessor, xpath: str) -> bool:
     """ Check if an XPath is traversing more than one level
 
-    :param parent:
+    :param xpath_proc: XPath processor with context already set to the parent node
     :param xpath:
     :return:
     """
-    xpath_proc = get_xpath_proc(parent, processor=processor)
     if xpath.startswith(".//"):
         # If the XPath starts with .//, we try to see if we have a direct child that matches
         drct_xpath = xpath.replace(".//", "./", 1)
         if xpath_proc.effective_boolean_value(f"head({xpath}) is head({drct_xpath})"):
             return False
-        else:
-            return True
+        return True
     return False
 
 
@@ -70,7 +68,7 @@ def xpath_walk_step(parent: saxonlib.PyXdmNode, xpath: str, processor: saxonlib.
     xpath_proc = get_xpath_proc(parent, processor=processor)
     # We check first for loops, because that changes the xpath
     if xpath.startswith(".//"):
-        if is_traversing_xpath(parent, xpath, processor=processor):
+        if is_traversing_xpath(xpath_proc, xpath):
             return xpath_proc.evaluate_single(f"./*[{xpath}]"), True
         else:
             return xpath_proc.evaluate_single(xpath), False
@@ -174,11 +172,12 @@ def copy_node(
             _add_space_tail(element, node, processor=processor)
             return element
         elif parent is not None:
-            if not parent.getchildren():
+            existing = parent.getchildren()
+            if not existing:
                 if not isinstance(parent, (StringElement, ObjectifiedElement)):
                     parent.text = unescape((parent.text or "") + element)
             else:
-                parent.getchildren()[-1].tail = unescape(element)
+                existing[-1].tail = unescape(element)
             return parent
 
     if node is None:
@@ -373,7 +372,7 @@ def reconstruct_doc(
 
         # Given that both XPath returns the same node, we still need to check if end is looping
         #   We optimize by avoiding this check when start and end are the same
-        if start_xpath != end_xpath and is_traversing_xpath(root, current_end, processor=processor):
+        if start_xpath != end_xpath and is_traversing_xpath(xpath_proc, current_end):
             queue_end = end_xpath
 
         # If we have a child XPath, then continue the job
@@ -407,7 +406,7 @@ def reconstruct_doc(
 
             # Given that both XPath returns the same node, we still need to check if end is looping
             #   We optimize by avoiding this check when start and end are the same
-            if start_xpath != end_xpath and is_traversing_xpath(root, current_end, processor=processor):
+            if start_xpath != end_xpath and is_traversing_xpath(xpath_proc, current_end):
                 queue_end = end_xpath
 
             reconstruct_doc(
@@ -434,7 +433,7 @@ def reconstruct_doc(
 
             # Given that both XPath returns the same node, we still need to check if end is looping
             #   We optimize by avoiding this check when start and end are the same
-            if start_xpath != end_xpath and is_traversing_xpath(root, current_end, processor=processor):
+            if start_xpath != end_xpath and is_traversing_xpath(xpath_proc, current_end):
                 queue_end = end_xpath
 
             new_tree = reconstruct_doc(
@@ -486,8 +485,7 @@ def reconstruct_doc(
         sib_current_end = clean_xpath_for_following(current_end, end_is_traversing)
 
         # We look for siblings between start and end matches
-        xpath = get_xpath_proc(root, processor=processor)
-        for sibling in xpath_eval(xpath, f"./node()[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]"):
+        for sibling in xpath_eval(xpath_proc, f"./node()[preceding-sibling::{sib_current_start} and following-sibling::{sib_current_end}]"):
             copy_node(sibling, include_children=True, parent=new_tree, processor=processor)
 
         # Here we reached the end, logically.
@@ -622,7 +620,7 @@ class Document:
         return root
 
     def get_reffs(self, tree: Optional[str] = None):
-        tree = self.citeStructure[tree or self.default_tree]
+        tree: CiteStructureParser = self.citeStructure[tree or self.default_tree]
         return tree.find_refs(root=self.xml, structure=tree.structure)
 
     def get_next(self, tree, unit) -> Optional[CitableUnit]:
