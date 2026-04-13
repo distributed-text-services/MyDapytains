@@ -21,6 +21,9 @@ from dotenv_flow import dotenv_flow
 
 dotenv_flow(os.getenv("SERVER_ENV", "prod"))
 
+CONTEXT_URL = "https://dtsapi.org/context/v1.0.json"
+DTS_VERSION = "1.0"
+
 
 def inject_json(collection: Collection, templates) -> Dict:
     if collection.resource:
@@ -75,8 +78,8 @@ def collection_view(
         return msg_4xx(f"nav parameter has a wrong value {nav}", code=400)
 
     return Response(json.dumps({
-        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-        "dtsVersion": "1-alpha",
+        "@context": CONTEXT_URL,
+        "dtsVersion": DTS_VERSION,
         **out,
         "member": [
             member.json(inject=inject_json(member, templates=templates))
@@ -153,8 +156,8 @@ def navigation_view(resource, ref, start, end, tree, down, templates: Dict[str, 
 
     # Start the response
     out = {
-        "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-        "dtsVersion": "1-alpha",
+        "@context": CONTEXT_URL,
+        "dtsVersion": DTS_VERSION,
         "@type": "Navigation",
         "@id": templates["navigation"].expand({
             "ref": ref, "down": down, "start": start, "end": end, "tree": tree
@@ -220,8 +223,8 @@ def create_app(
 
         return Response(
             json.dumps({
-                "@context": "https://distributed-text-services.github.io/specifications/context/1-alpha1.json",
-                "dtsVersion": "1-alpha",
+                "@context": CONTEXT_URL,
+                "dtsVersion": DTS_VERSION,
                 "@id": f"{request.url_root}",
                 "@type": "EntryPoint",
                 "collection": collection_template.uri,
