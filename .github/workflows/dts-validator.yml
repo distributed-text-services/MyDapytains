@@ -27,8 +27,8 @@ jobs:
       - uses: actions/checkout@v4
         name: Clone DTS-Validator
         with:
-          repository: 'mromanello/DTS-validator'
-          ref: 'v0.2.0'
+          repository: 'distributed-text-services/validator'
+          ref: 'v0.2.3'
           path: "dts-validator"
 
       # Flask Server
