@@ -284,12 +284,14 @@ class CiteStructureParser:
 
         unsorted = []
         for s in structure:
-            unsorted.extend(
-                [
-                    (f"{prefix}{s.delim}{value}", s)
-                    for value in xpath_proc.evaluate(f"{xpath_prefix}{s.xpath}")
-                ]
-            )
+            results = xpath_proc.evaluate(f"{xpath_prefix}{s.xpath}")
+            if results is not None:
+                unsorted.extend(
+                    [
+                        (f"{prefix}{s.delim}{value}", s)
+                        for value in results
+                    ]
+                )
 
         unsorted = [
             _simple_node(ref, self.generate_xpath(ref), struct)
