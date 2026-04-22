@@ -1,0 +1,41 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+    <teiHeader>
+        <encodingDesc>
+            <refsDecl>
+                <citeStructure unit="book" match="//body/div" use="@n">
+                    <citeStructure unit="verse" match="ab" use="position()" delim=":"/>
+                    <citeStructure unit="chapter" match="div" use="position()" delim=" ">
+                        <citeStructure unit="bloup" match="l" use="position()" delim="#"/>
+                    </citeStructure>
+                </citeStructure>
+            </refsDecl>
+        </encodingDesc>
+    </teiHeader>
+    <text>
+    <body>
+    <div n="Luke">
+        <div>
+            <l>Text 1</l>
+        </div>
+        <ab>
+            <l>Text 2</l>
+            <l>Text 3</l>
+        </ab>
+    </div>
+    <div n="Mark">
+        <ab>
+            <div>Text A</div>
+            <div>Text B</div>
+            <l>Text C</l>
+            <div>Text D</div>
+        </ab>
+        <ab>
+            <div>Text A</div>
+            <div>Text B</div>
+            <l>Text C</l>
+            <div>Text D</div>
+        </ab>
+    </div>
+    </body>
+    </text>
+</TEI>

@@ -1,6 +1,8 @@
 import os.path
 
 import pytest
+
+from dapytains.tei.citeStructure import CitableUnit
 from dapytains.tei.document import Document
 from lxml.etree import tostring
 
@@ -252,3 +254,16 @@ def test_xml_entity():
  '    </text>\n'
  '</TEI>')
 
+
+def _flat_refs(refs: list[CitableUnit]) -> list[str]:
+    data = []
+    for ref in refs:
+        data.append(ref.ref)
+        data.extend(_flat_refs(ref.children))
+    return data
+
+
+def test_ref_parsing_uneven_tree():
+    """Test that a level that can contain data is not missed"""
+    doc = Document(f"{local_dir}/uneven_parent_level.xml")
+    assert _flat_refs(doc.get_reffs()) == ['Luke', 'Luke 1', 'Luke 1#1', 'Luke:1', 'Mark', 'Mark:1', 'Mark:2']
