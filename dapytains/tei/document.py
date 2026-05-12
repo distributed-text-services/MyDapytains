@@ -12,6 +12,54 @@ from dapytains.errors import UnknownTreeName
 
 COPY_UNTIL_END = -1
 _namespace = re.compile(r"Q{(?P<namespace>[^}]+)}(?P<tagname>.+)")
+_ID_REF = re.compile(r'#([\w.\-:]+)')
+_XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
+
+
+def _collect_id_refs(element: Element) -> set:
+    """All #fragment values referenced in any attribute of the element tree."""
+    refs = set()
+    for node in element.iter():
+        for value in node.attrib.values():
+            refs.update(_ID_REF.findall(value))
+    return refs
+
+
+def _collect_xml_ids(element: Element) -> set:
+    """All @xml:id values declared anywhere in the element tree."""
+    ids = set()
+    for node in element.iter():
+        xml_id = node.get(_XML_ID)
+        if xml_id:
+            ids.add(xml_id)
+    return ids
+
+
+def _filter_standoff(element: Element, passage_refs: set, passage_xml_ids: set) -> bool:
+    """Recursively prune standOff in-place, keeping only relevant elements.
+
+    An element is kept (returns True) when:
+    - its @xml:id is in passage_refs  (passage points to it), or
+    - any of its attribute values reference an id in passage_xml_ids
+      (it points to a passage element, e.g. target="#w55"), or
+    - at least one of its descendants satisfies either condition.
+
+    Call after the fixed-point expansion of passage_refs so that transitive
+    standOff→standOff references (e.g. @ana="#fs05") are already folded in.
+    """
+    own_id = element.get(_XML_ID)
+    if own_id and own_id in passage_refs:
+        return True
+    for value in element.attrib.values():
+        if any(ref in passage_xml_ids for ref in _ID_REF.findall(value)):
+            return True
+    keep = False
+    for child in list(element):
+        if _filter_standoff(child, passage_refs, passage_xml_ids):
+            keep = True
+        else:
+            element.remove(child)
+    return keep
 
 
 def xpath_split(string: str) -> List[str]:
@@ -558,12 +606,30 @@ class Document:
 
         self.default_tree: str = default
 
-    def get_passage(self, ref_or_start: Optional[str], end: Optional[str] = None, tree: Optional[str] = None) -> Element:
+    def get_passage(
+        self,
+        ref_or_start: Optional[str],
+        end: Optional[str] = None,
+        tree: Optional[str] = None,
+        include_header: bool = False,
+        include_standoff: bool = False,
+    ) -> Element:
         """ Retrieve a given passage from the document
 
         :param ref_or_start: First element of a range or single ref
         :param end: End of a range
         :param tree: Name of a specific tree
+        :param include_header: Prepend the full teiHeader to the result (default False)
+        :param include_standoff: Append filtered standOff content to the result (default False).
+            Three reference directions are resolved:
+            (1) passage → standOff: attributes such as @corresp/@ref in the passage pointing to
+                standOff @xml:id values;
+            (2) standOff → passage: @target/@from/@to etc. on standOff elements pointing to
+                @xml:id values present in the passage;
+            (3) transitive standOff → standOff: @ana and similar on already-included standOff
+                elements (fixed-point expansion until stable).
+            Note: when include_header is False, teiHeader entries referenced only from standOff
+            (e.g. taxonomy categories via @ana) are not individually extracted.
         """
         if ref_or_start and not end:
             start, end = ref_or_start, None
@@ -617,6 +683,62 @@ class Document:
             processor=self.xml_processor
         )
         objectify.deannotate(root, cleanup_namespaces=True)
+
+        if include_header:
+            xp = get_xpath_proc(self.xml, processor=self.xml_processor)
+            header_nodes = xpath_eval(xp, "/TEI/teiHeader")
+            if header_nodes:
+                xq = self.xml_processor.new_xquery_processor()
+                xq.set_context(xdm_item=header_nodes[0])
+                header_str = xq.run_query_to_string(query_text=(
+                    "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
+                    "declare option output:omit-xml-declaration 'yes';"
+                    "."
+                ))
+                if header_str and header_str.startswith("<"):
+                    root.insert(0, fromstring(header_str))
+
+        if include_standoff:
+            passage_refs = _collect_id_refs(root)
+            passage_xml_ids = _collect_xml_ids(root)
+
+            xp = get_xpath_proc(self.xml, processor=self.xml_processor)
+            standoff_elems = []
+            for so_node in xpath_eval(xp, "/TEI/standOff"):
+                xq = self.xml_processor.new_xquery_processor()
+                xq.set_context(xdm_item=so_node)
+                so_str = xq.run_query_to_string(query_text=(
+                    "declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';"
+                    "declare option output:omit-xml-declaration 'yes';"
+                    "."
+                ))
+                if so_str and so_str.startswith("<"):
+                    standoff_elems.append(fromstring(so_str))
+
+            if standoff_elems:
+                # Fixed-point: expand all_refs until included standOff elements
+                # reveal no further references (handles @ana and similar).
+                all_refs = set(passage_refs)
+                prev_size = -1
+                while len(all_refs) != prev_size:
+                    prev_size = len(all_refs)
+                    for so_elem in standoff_elems:
+                        for node in so_elem.iter():
+                            own_id = node.get(_XML_ID)
+                            is_relevant = (own_id and own_id in all_refs) or any(
+                                ref in passage_xml_ids
+                                for val in node.attrib.values()
+                                for ref in _ID_REF.findall(val)
+                            )
+                            if is_relevant:
+                                for val in node.attrib.values():
+                                    all_refs.update(_ID_REF.findall(val))
+
+                for so_elem in standoff_elems:
+                    _filter_standoff(so_elem, all_refs, passage_xml_ids)
+                    if len(so_elem) or so_elem.text:
+                        root.append(so_elem)
+
         return root
 
     def get_reffs(self, tree: Optional[str] = None):
