@@ -89,7 +89,8 @@ def collection_view(
     }, ), mimetype="application/ld+json", status=200)
 
 
-def document_view(resource, ref, start, end, tree, media, transformer: Transformer) -> Response:
+def document_view(resource, ref, start, end, tree, media, transformer: Transformer,
+                  include_header: bool = False, include_standoff: bool = False) -> Response:
     if not resource:
         return msg_4xx("Resource parameter was not provided")
 
@@ -124,7 +125,8 @@ def document_view(resource, ref, start, end, tree, media, transformer: Transform
         return Response(content, mimetype="application/xml")
 
     doc = Document(collection.filepath)
-    passage = doc.get_passage(ref_or_start=ref or start, end=end, tree=tree)
+    passage = doc.get_passage(ref_or_start=ref or start, end=end, tree=tree,
+                              include_header=include_header, include_standoff=include_standoff)
     if media and media != "application/xml":
         return transformer.transform(media, collection, passage)
     else:
@@ -211,7 +213,9 @@ def get_templates(
 def create_app(
         app: Flask,
         use_query: bool = False,
-        media_transformer: Transformer = Transformer()
+        media_transformer: Transformer = Transformer(),
+        include_header: bool = False,
+        include_standoff: bool = False,
 ) -> (Flask, SQLAlchemy):
     """
 
@@ -270,7 +274,8 @@ def create_app(
         end = request.args.get("end")
         tree = request.args.get("tree")
         media = request.args.get("mediaType")
-        return document_view(resource, ref, start, end, tree, media=media, transformer=media_transformer)
+        return document_view(resource, ref, start, end, tree, media=media, transformer=media_transformer,
+                             include_header=include_header, include_standoff=include_standoff)
 
     return app, db
 

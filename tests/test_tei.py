@@ -267,3 +267,63 @@ def test_ref_parsing_uneven_tree():
     """Test that a level that can contain data is not missed"""
     doc = Document(f"{local_dir}/uneven_parent_level.xml")
     assert _flat_refs(doc.get_reffs()) == ['Luke', 'Luke 1', 'Luke 1#1', 'Luke:1', 'Mark', 'Mark:1', 'Mark:2']
+
+
+def test_standoff_all_linking_cases():
+    """include_standoff=True resolves three reference directions:
+    (1) passage → standOff via @corresp/@ref,
+    (2) standOff → passage via @target,
+    (3) transitive standOff → standOff via @ana (fixed-point expansion).
+    Only elements relevant to the retrieved passage (div n="1") are included.
+    """
+    doc = Document(f"{local_dir}/tei_with_standoff.xml")
+    result = tostring(doc.get_passage("1", include_standoff=True), encoding=str)
+
+    # passage content
+    assert 'xml:id="w1"' in result
+    assert 'xml:id="w7"' not in result        # div n="2" excluded from passage
+
+    # case 1: passage → standOff
+    assert 'xml:id="LATL"' in result           # corresp="#LATL" in passage
+    assert 'xml:id="LBHM"' in result           # corresp="#LBHM" in passage
+    assert 'xml:id="MLK"' in result            # ref="#MLK" in passage
+    assert 'xml:id="LDAL"' not in result       # referenced only from div n="2"
+    assert 'xml:id="JFK"' not in result        # not referenced from passage
+
+    # case 2: standOff → passage
+    assert 'target="#w1"' in result            # w1 has xml:id in passage
+    assert 'target="#w2"' in result
+    assert 'target="#w3"' in result
+    assert 'target="#w7"' not in result        # w7 not in passage
+
+    # case 3: transitive standOff → standOff
+    assert 'xml:id="pos-NNP"' in result        # @ana on included spans
+    assert 'xml:id="pos-JJ"' not in result     # @ana only on excluded span (target="#w7")
+
+    # standOff comes after text
+    assert result.index('<text') < result.index('<standOff')
+
+
+def test_include_header():
+    """include_header=True prepends the full teiHeader; absent by default."""
+    doc = Document(f"{local_dir}/tei_with_standoff.xml")
+    without = tostring(doc.get_passage("1"), encoding=str)
+    assert '<teiHeader' not in without
+
+    with_header = tostring(doc.get_passage("1", include_header=True), encoding=str)
+    assert '<teiHeader' in with_header
+    assert with_header.index('<teiHeader') < with_header.index('<text')
+
+
+def test_include_header_and_standoff():
+    """When both flags are set the order is teiHeader → text → standOff."""
+    doc = Document(f"{local_dir}/tei_with_standoff.xml")
+    result = tostring(doc.get_passage("1", include_header=True, include_standoff=True), encoding=str)
+    assert result.index('<teiHeader') < result.index('<text') < result.index('<standOff')
+
+
+def test_standoff_no_standoff():
+    """include_standoff=True on a document with no standOff raises no error."""
+    doc = Document(f"{local_dir}/base_tei.xml")
+    result = tostring(doc.get_passage("Luke 1:1", include_standoff=True), encoding=str)
+    assert '<standOff' not in result

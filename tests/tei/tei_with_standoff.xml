@@ -1,0 +1,53 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <encodingDesc>
+      <refsDecl>
+        <citeStructure unit="section" match="//body/div" use="@n"/>
+      </refsDecl>
+    </encodingDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div n="1">
+        <p>
+          <w xml:id="w1">Martin</w>
+          <w xml:id="w2">Luther</w>
+          <w xml:id="w3">King</w>
+          <persName ref="#MLK">Martin Luther King</persName>
+          spoke in
+          <placeName corresp="#LATL">Atlanta</placeName>
+          and
+          <placeName corresp="#LBHM">Birmingham</placeName>.
+        </p>
+      </div>
+      <div n="2">
+        <p>
+          <w xml:id="w7">Other</w>
+          <w xml:id="w8">content</w>
+          <placeName corresp="#LDAL">Dallas</placeName>
+        </p>
+      </div>
+    </body>
+  </text>
+  <standOff>
+    <listPlace>
+      <place xml:id="LATL"><placeName>Atlanta</placeName><location><geo>33.755 -84.39</geo></location></place>
+      <place xml:id="LBHM"><placeName>Birmingham</placeName><location><geo>33.653333 -86.808889</geo></location></place>
+      <place xml:id="LDAL"><placeName>Dallas</placeName><location><geo>32.783 -96.8</geo></location></place>
+    </listPlace>
+    <listPerson>
+      <person xml:id="MLK"><persName>Martin Luther King Jr.</persName></person>
+      <person xml:id="JFK"><persName>John F. Kennedy</persName></person>
+    </listPerson>
+    <spanGrp type="pos">
+      <span xml:id="ann1" target="#w1" ana="#pos-NNP"/>
+      <span xml:id="ann2" target="#w2" ana="#pos-NNP"/>
+      <span xml:id="ann3" target="#w3" ana="#pos-NNP"/>
+      <span xml:id="ann4" target="#w7" ana="#pos-JJ"/>
+    </spanGrp>
+    <fvLib>
+      <fs xml:id="pos-NNP"><f name="pos"><string>NNP</string></f></fs>
+      <fs xml:id="pos-JJ"><f name="pos"><string>JJ</string></f></fs>
+    </fvLib>
+  </standOff>
+</TEI>

@@ -8,6 +8,7 @@ import uritemplate
 import urllib
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+STANDOFF_RESOURCE = "https://foo.bar/standoff"
 BASE_URI = "http://localhost"
 CONTEXT_URL = "https://dtsapi.org/context/v1.0.json"
 DTS_VERSION = "1.0"
@@ -172,3 +173,135 @@ def test_collection(client):
             'title': 'My First Collection',
             'totalChildren': 1,
             'totalParents': 1} == response.get_json()
+
+
+# ── document endpoint fixtures ────────────────────────────────────────────────
+
+def _make_standoff_app(include_header=False, include_standoff=False):
+    flask_app = Flask(__name__)
+    flask_app, db = create_app(flask_app, include_header=include_header,
+                               include_standoff=include_standoff)
+    db_path = os.path.join(basedir, 'app_standoff.db')
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(flask_app)
+    with flask_app.app_context():
+        db.create_all()
+        catalog, _ = parse(f"{basedir}/catalog/standoff-catalog.xml")
+        store_catalog(catalog)
+    return flask_app, db
+
+
+@pytest.fixture
+def standoff_client_default():
+    """Document endpoint with both flags off (default behaviour)."""
+    flask_app, db = _make_standoff_app(include_header=False, include_standoff=False)
+    yield flask_app.test_client()
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture
+def standoff_client_header():
+    """Document endpoint with include_header=True only."""
+    flask_app, db = _make_standoff_app(include_header=True, include_standoff=False)
+    yield flask_app.test_client()
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture
+def standoff_client_standoff():
+    """Document endpoint with include_standoff=True only."""
+    flask_app, db = _make_standoff_app(include_header=False, include_standoff=True)
+    yield flask_app.test_client()
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture
+def standoff_client_both():
+    """Document endpoint with both include_header=True and include_standoff=True."""
+    flask_app, db = _make_standoff_app(include_header=True, include_standoff=True)
+    yield flask_app.test_client()
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _get_doc(client, ref):
+    from urllib.parse import quote_plus
+    return client.get(f"/document/?resource={quote_plus(STANDOFF_RESOURCE)}&ref={ref}")
+
+
+# ── document endpoint tests ───────────────────────────────────────────────────
+
+def test_document_default_no_header_no_standoff(standoff_client_default):
+    """By default neither teiHeader nor standOff appears in the response."""
+    response = _get_doc(standoff_client_default, "1")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert "<teiHeader" not in body
+    assert "<standOff" not in body
+    # passage content is still there
+    assert 'xml:id="w1"' in body
+
+
+def test_document_include_header(standoff_client_header):
+    """include_header=True causes teiHeader to appear before text in the response."""
+    response = _get_doc(standoff_client_header, "1")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert "<teiHeader" in body
+    assert "<standOff" not in body
+    assert body.index("<teiHeader") < body.index("<text")
+
+
+def test_document_include_standoff(standoff_client_standoff):
+    """include_standoff=True filters standOff entries for the retrieved passage.
+
+    div n="1" references LATL, LBHM, MLK (case 1); its word tokens w1–w3
+    are targeted by ann1–ann3 (case 2); those spans carry @ana="#pos-NNP"
+    pulling in pos-NNP transitively (case 3).  LDAL, JFK, ann4, and pos-JJ
+    are excluded because they are only referenced from div n="2".
+    """
+    response = _get_doc(standoff_client_standoff, "1")
+    assert response.status_code == 200
+    body = response.data.decode()
+
+    assert "<teiHeader" not in body
+    assert "<standOff" in body
+
+    # case 1: passage → standOff
+    assert 'xml:id="LATL"' in body
+    assert 'xml:id="LBHM"' in body
+    assert 'xml:id="MLK"' in body
+    assert 'xml:id="LDAL"' not in body
+    assert 'xml:id="JFK"' not in body
+
+    # case 2: standOff → passage
+    assert 'target="#w1"' in body
+    assert 'target="#w2"' in body
+    assert 'target="#w3"' in body
+    assert 'target="#w7"' not in body
+
+    # case 3: transitive standOff → standOff
+    assert 'xml:id="pos-NNP"' in body
+    assert 'xml:id="pos-JJ"' not in body
+
+    assert body.index("<text") < body.index("<standOff")
+
+
+def test_document_include_header_and_standoff(standoff_client_both):
+    """With both flags the response order is teiHeader → text → standOff."""
+    response = _get_doc(standoff_client_both, "1")
+    assert response.status_code == 200
+    body = response.data.decode()
+    assert "<teiHeader" in body
+    assert "<standOff" in body
+    assert body.index("<teiHeader") < body.index("<text") < body.index("<standOff")
