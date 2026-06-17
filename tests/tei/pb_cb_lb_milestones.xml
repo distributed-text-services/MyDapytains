@@ -1,0 +1,53 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title>Sample Manuscript</title>
+      </titleStmt>
+      <publicationStmt>
+        <p>Unit test example</p>
+      </publicationStmt>
+      <sourceDesc>
+        <p>Fictitious manuscript for testing.</p>
+      </sourceDesc>
+    </fileDesc>
+
+    <encodingDesc>
+      <refsDecl>
+        <citeStructure unit="page" match="//body//pb" use="@n">
+          <citeStructure unit="column" match=".//cb" use="@n" delim=".">
+            <citeStructure unit="line" match=".//lb" use="@n" delim="." />
+          </citeStructure>
+        </citeStructure>
+      </refsDecl>
+    </encodingDesc>
+  </teiHeader>
+
+  <text>
+    <body>
+      <div type="edition">
+        <ab>
+
+          <pb xml:id="p1" n="1"/>
+          <cb xml:id="p1c1" n="1"/>
+          <lb xml:id="p1c1l1" n="1"/>alpha
+          <lb xml:id="p1c1l2" n="2"/>beta
+
+          <cb xml:id="p1c2" n="2"/>
+          <lb xml:id="p1c2l1" n="1"/>gamma
+          <lb xml:id="p1c2l2" n="2"/>delta
+
+          <pb xml:id="p2" n="2"/>
+          <cb xml:id="p2c1" n="1"/>
+          <lb xml:id="p2c1l1" n="1"/>epsilon
+          <lb xml:id="p2c1l2" n="2"/>zeta
+
+          <cb xml:id="p2c2" n="2"/>
+          <lb xml:id="p2c2l1" n="1"/>eta
+          <lb xml:id="p2c2l2" n="2"/>theta
+
+        </ab>
+      </div>
+    </body>
+  </text>
+</TEI>
