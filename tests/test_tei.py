@@ -269,6 +269,141 @@ def test_ref_parsing_uneven_tree():
     assert _flat_refs(doc.get_reffs()) == ['Luke', 'Luke 1', 'Luke 1#1', 'Luke:1', 'Mark', 'Mark:1', 'Mark:2']
 
 
+def test_milestone_cb_lb():
+    """Test that nested self-closing milestones (e.g. <cb/> containing <lb/> siblings) work"""
+    doc = Document(f"{local_dir}/cb_lb_milestones.xml")
+
+    refs = doc.get_reffs()
+    assert [(r.ref, [c.ref for c in r.children]) for r in refs] == [
+        ("1", ["1.1", "1.2", "1.3", "1.4"]),
+        ("2", ["2.1", "2.2", "2.3", "2.4"]),
+    ]
+
+    # Same @n value ("1") in both columns must resolve to different, disambiguated lines
+    assert tostring(doc.get_passage("1.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="c1l1" n="1"/>IMP CAESARI\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+    assert tostring(doc.get_passage("2.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="c2l1" n="1"/>COS XIII P P\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+    # Last line of column 1 must not bleed into column 2's content
+    assert tostring(doc.get_passage("1.4"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="c1l4" n="4"/>TRIB POTESTATE X\n\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+    # A range crossing the column boundary should include the <cb/> milestone itself
+    assert tostring(doc.get_passage("1.4", "2.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="c1l4" n="4"/>TRIB POTESTATE X\n\n'
+        '          <cb xml:id="c2" n="2"/>\n'
+        '          <lb xml:id="c2l1" n="1"/>COS XIII P P\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+
+def test_milestone_pb_cb_lb():
+    """Test a 3-level manuscript milestone hierarchy: page (<pb/>) > column (<cb/>) > line (<lb/>)"""
+    doc = Document(f"{local_dir}/pb_cb_lb_milestones.xml")
+
+    assert _flat_refs(doc.get_reffs()) == [
+        "1", "1.1", "1.1.1", "1.1.2", "1.2", "1.2.1", "1.2.2",
+        "2", "2.1", "2.1.1", "2.1.2", "2.2", "2.2.1", "2.2.2",
+    ]
+
+    # Same @n values ("1"/"2") repeat for column and line across every page; each must resolve
+    # to its own, disambiguated line.
+    assert tostring(doc.get_passage("1.1.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="p1c1l1" n="1"/>alpha\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+    assert tostring(doc.get_passage("2.2.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="p2c2l1" n="1"/>eta\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+    # Last line of the last column of page 1 must not bleed into page 2's content, but may
+    # include the upcoming <pb/> milestone marker itself
+    assert tostring(doc.get_passage("1.2.2"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="p1c2l2" n="2"/>delta\n\n'
+        '          <pb xml:id="p2" n="2"/>\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+    # A range crossing the page boundary should include both the <pb/> and <cb/> milestones
+    assert tostring(doc.get_passage("1.2.2", "2.1.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <lb xml:id="p1c2l2" n="2"/>delta\n\n'
+        '          <pb xml:id="p2" n="2"/>\n'
+        '          <cb xml:id="p2c1" n="1"/>\n'
+        '          <lb xml:id="p2c1l1" n="1"/>epsilon\n'
+        '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
 def test_standoff_all_linking_cases():
     """include_standoff=True resolves three reference directions:
     (1) passage → standOff via @corresp/@ref,
