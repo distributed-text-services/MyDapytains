@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<collection identifier="https://foo.bar/standoff-root">
+    <title>Standoff test collection</title>
+    <members>
+        <resource identifier="https://foo.bar/standoff" filepath="../tei/tei_with_standoff.xml">
+            <title>Standoff document</title>
+        </resource>
+    </members>
+</collection>
