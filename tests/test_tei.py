@@ -279,12 +279,14 @@ def test_milestone_cb_lb():
         ("2", ["2.1", "2.2", "2.3", "2.4"]),
     ]
 
-    # Same @n value ("1") in both columns must resolve to different, disambiguated lines
+    # Same @n value ("1") in both columns must resolve to different, disambiguated lines,
+    # and each passage must carry the <cb/> milestone anchoring its column
     assert tostring(doc.get_passage("1.1"), encoding=str) == (
         '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <cb xml:id="c1" n="1"/>\n'
         '          <lb xml:id="c1l1" n="1"/>IMP CAESARI\n'
         '          </ab>\n'
         '      </div>\n'
@@ -297,6 +299,7 @@ def test_milestone_cb_lb():
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <cb xml:id="c2" n="2"/>\n'
         '          <lb xml:id="c2l1" n="1"/>COS XIII P P\n'
         '          </ab>\n'
         '      </div>\n'
@@ -311,6 +314,7 @@ def test_milestone_cb_lb():
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <cb xml:id="c1" n="1"/>\n'
         '          <lb xml:id="c1l4" n="4"/>TRIB POTESTATE X\n\n'
         '          </ab>\n'
         '      </div>\n'
@@ -319,16 +323,72 @@ def test_milestone_cb_lb():
         '</TEI>'
     )
 
-    # A range crossing the column boundary should include the <cb/> milestone itself
+    # A range crossing the column boundary should include both <cb/> milestones
     assert tostring(doc.get_passage("1.4", "2.1"), encoding=str) == (
         '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <cb xml:id="c1" n="1"/>\n'
         '          <lb xml:id="c1l4" n="4"/>TRIB POTESTATE X\n\n'
         '          <cb xml:id="c2" n="2"/>\n'
         '          <lb xml:id="c2l1" n="1"/>COS XIII P P\n'
         '          </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+
+def test_milestone_cb_lb_split_ab():
+    """Milestone columns living in separate <ab> containers, with lines wrapped in a <seg>:
+    a range must carry each side's <cb/> anchor and truncate the wrapper at the end line."""
+    doc = Document(f"{local_dir}/cb_lb_milestones_split_ab.xml")
+
+    refs = doc.get_reffs()
+    assert [(r.ref, [c.ref for c in r.children]) for r in refs] == [
+        ("1", ["1.1", "1.2", "1.3", "1.4"]),
+        ("2", ["2.1", "2.2", "2.3", "2.4"]),
+    ]
+
+    # The range starts at line 3, but column 1's <cb/> anchor must still be copied (lines 1-2
+    # must not); on the end side, the <seg> wrapper is kept and cut after line 2.3.
+    assert tostring(doc.get_passage("1.3", "2.3"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n\n'
+        '          <cb xml:id="c1" n="1"/>\n'
+        '          <lb xml:id="c1l3" n="3"/>PONTIFICI MAXIMO\n'
+        '          <lb xml:id="c1l4" n="4"/>TRIB POTESTATE X\n'
+        '        </ab>\n'
+        '        <ab>\n'
+        '          <cb xml:id="c2" n="2"/>\n'
+        '          <lb xml:id="c2l1" n="1"/>COS XIII P P\n'
+        '          <lb xml:id="c2l2" n="2"/>SENATVS POPVLVSQVE\n'
+        '          <seg>\n'
+        '          <lb xml:id="c2l3" n="3"/>ROMANVS\n'
+        '          </seg>\n\n'
+        '        </ab>\n'
+        '      </div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+    # Single ref inside the <seg>: the <cb/> anchor is a sibling of the wrapper, one level
+    # above the line, and must still be copied.
+    assert tostring(doc.get_passage("2.3"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="edition">\n'
+        '        <ab>\n'
+        '          <cb xml:id="c2" n="2"/>\n'
+        '          <seg>\n'
+        '          <lb xml:id="c2l3" n="3"/>ROMANVS\n'
+        '          </seg>\n\n'
+        '        </ab>\n'
         '      </div>\n'
         '    </body>\n'
         '  </text>\n'
@@ -346,12 +406,14 @@ def test_milestone_pb_cb_lb():
     ]
 
     # Same @n values ("1"/"2") repeat for column and line across every page; each must resolve
-    # to its own, disambiguated line.
+    # to its own, disambiguated line, anchored by its own <pb/> and <cb/> milestones.
     assert tostring(doc.get_passage("1.1.1"), encoding=str) == (
         '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <pb xml:id="p1" n="1"/>\n'
+        '          <cb xml:id="p1c1" n="1"/>\n'
         '          <lb xml:id="p1c1l1" n="1"/>alpha\n'
         '          </ab>\n'
         '      </div>\n'
@@ -364,6 +426,8 @@ def test_milestone_pb_cb_lb():
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <pb xml:id="p2" n="2"/>\n'
+        '          <cb xml:id="p2c2" n="2"/>\n'
         '          <lb xml:id="p2c2l1" n="1"/>eta\n'
         '          </ab>\n'
         '      </div>\n'
@@ -379,6 +443,8 @@ def test_milestone_pb_cb_lb():
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <pb xml:id="p1" n="1"/>\n'
+        '          <cb xml:id="p1c2" n="2"/>\n'
         '          <lb xml:id="p1c2l2" n="2"/>delta\n\n'
         '          <pb xml:id="p2" n="2"/>\n'
         '          </ab>\n'
@@ -388,12 +454,15 @@ def test_milestone_pb_cb_lb():
         '</TEI>'
     )
 
-    # A range crossing the page boundary should include both the <pb/> and <cb/> milestones
+    # A range crossing the page boundary should include the <pb/> and <cb/> milestones of
+    # both sides
     assert tostring(doc.get_passage("1.2.2", "2.1.1"), encoding=str) == (
         '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
         '    <body>\n'
         '      <div type="edition">\n'
         '        <ab>\n\n'
+        '          <pb xml:id="p1" n="1"/>\n'
+        '          <cb xml:id="p1c2" n="2"/>\n'
         '          <lb xml:id="p1c2l2" n="2"/>delta\n\n'
         '          <pb xml:id="p2" n="2"/>\n'
         '          <cb xml:id="p2c1" n="1"/>\n'
