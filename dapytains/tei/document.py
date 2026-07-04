@@ -346,6 +346,37 @@ def _treat_siblings(
             )
 
 
+def _copy_milestone_anchors(
+        xpath_proc: PyXPathProcessor,
+        result_start: saxonlib.PyXdmNode,
+        anchors: List[saxonlib.PyXdmNode],
+        new_tree: Element,
+        processor: saxonlib.PySaxonProcessor
+) -> None:
+    """ Copy citation-anchoring milestone nodes (e.g. <cb/>) into the reconstructed tree.
+
+    A milestone-nested reference resolves to its deepest node only (e.g. the <lb/>), while
+    the milestones carrying the passage's citation identity (the <cb/> of "this column") sit
+    before it in the document as siblings, not ancestors. At each reconstruction level, copy
+    the anchors that are direct children of the current root and precede the start node;
+    anchors sitting deeper along the path are copied by the deeper recursion levels. An
+    anchor sealed inside an element that is not on the walked path (e.g. a <cb/> closing
+    inside a previous wrapper) is not recovered.
+
+    :param xpath_proc: XPath processor whose context is the current root
+    :param result_start: Node the walk resolved at this level (start side)
+    :param anchors: Milestone nodes of the start reference's ancestor units
+    :param new_tree: Reconstructed copy of the current root
+    """
+    xpath_proc.declare_variable("__anchor")
+    xpath_proc.declare_variable("__anchor_start")
+    xpath_proc.set_parameter("__anchor_start", result_start)
+    for anchor in anchors:
+        xpath_proc.set_parameter("__anchor", anchor)
+        if xpath_proc.effective_boolean_value("exists(./node()[. is $__anchor][. << $__anchor_start])"):
+            copy_node(anchor, include_children=True, parent=new_tree, processor=processor)
+
+
 def xpath_eval(proc: PyXPathProcessor, xpath) -> List:
     return proc.evaluate(xpath) or []
 
@@ -367,7 +398,8 @@ def reconstruct_doc(
     end_xpath: Optional[List[str]] = None,
     start_siblings: Optional[Union[str, int]] = None,
     end_siblings: Optional[Union[str, int]] = None,
-    copy_until: bool = False
+    copy_until: bool = False,
+    start_anchors: Optional[List[saxonlib.PyXdmNode]] = None
 ) -> Element:
     """ Loop over passages to construct and increment new tree given a parent and XPaths
 
@@ -379,6 +411,8 @@ def reconstruct_doc(
     :type end_xpath: [str]
     :param start_siblings: If siblings of starts need to be captured, provide the XPATH here. If == COPY_UNTIL_END, copy until ends
     :param end_siblings: If siblings of end need to be captured, provide XPath here.  If == COPY_UNTIL_END, copy until ends
+    :param start_anchors: Milestone nodes (e.g. <cb/>) anchoring the start reference's ancestor
+        units, to be copied where they precede the start node (see _copy_milestone_anchors)
     :return: Newly incremented tree
 
     """
@@ -424,6 +458,9 @@ def reconstruct_doc(
             ):
                 copy_node(sibling, include_children=True, parent=new_tree, processor=processor)
 
+        if start_anchors and new_tree is not None and result_start is not None:
+            _copy_milestone_anchors(xpath_proc, result_start, start_anchors, new_tree, processor=processor)
+
         # We get the children if the XPath stops here
         # We copy the node we found
         copied_node = copy_node(
@@ -446,7 +483,8 @@ def reconstruct_doc(
                 start_xpath=queue_start,
                 end_xpath=queue_end,
                 start_siblings=start_siblings,
-                end_siblings=end_siblings, processor=processor
+                end_siblings=end_siblings, processor=processor,
+                start_anchors=start_anchors
             )
         if start_siblings is not None:
             _treat_siblings(context_node=result_start, xpath=start_siblings, last_node=copied_node,
@@ -479,7 +517,8 @@ def reconstruct_doc(
                 end_xpath=queue_end,
                 start_siblings=start_siblings,
                 end_siblings=end_siblings,
-                processor=processor
+                processor=processor,
+                start_anchors=start_anchors
             )
             return new_tree
 
@@ -506,7 +545,8 @@ def reconstruct_doc(
                 end_xpath=queue_end,
                 start_siblings=start_siblings,
                 end_siblings=end_siblings,
-                processor=processor
+                processor=processor,
+                start_anchors=start_anchors
             )
             return new_tree
 
@@ -516,6 +556,9 @@ def reconstruct_doc(
         # If end_xpath results in a loop, then loop end_xpath
         if end_is_traversing:
             queue_end = end_xpath
+
+        if start_anchors and new_tree is not None and result_start is not None:
+            _copy_milestone_anchors(xpath_proc, result_start, start_anchors, new_tree, processor=processor)
 
         # We start by copying start.
         parent_start = copy_node(
@@ -537,7 +580,8 @@ def reconstruct_doc(
                 start_xpath=queue_start,
                 end_xpath=queue_start,
                 start_siblings=start_siblings,
-                processor=processor
+                processor=processor,
+                start_anchors=start_anchors
             )
 
         # We look for siblings between start and end matches. When both ends are already
@@ -675,6 +719,13 @@ class Document:
         start_sibling = None
         end_sibling = None
 
+        # Milestone-nested start (e.g. a line under a <cb/>): the milestones that anchor its
+        # ancestor units are siblings in the document, not ancestors, so the walk would skip
+        # them. Resolve them now so reconstruct_doc can copy them where they belong.
+        start_anchors = None
+        if self.citeStructure[tree].is_milestone_nested(start):
+            start_anchors = self.citeStructure[tree].milestone_anchors(start)
+
         if end:
             end_xpath = self.citeStructure[tree].generate_xpath(end)
             end_xpath_norm = normalize_xpath(xpath_split(end_xpath))
@@ -715,7 +766,8 @@ class Document:
             end_xpath=end_xpath_norm,
             start_siblings=start_sibling,
             end_siblings=end_sibling,
-            processor=self.xml_processor
+            processor=self.xml_processor,
+            start_anchors=start_anchors
         )
         objectify.deannotate(root, cleanup_namespaces=True)
 

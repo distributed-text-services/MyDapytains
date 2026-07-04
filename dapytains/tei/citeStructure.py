@@ -285,6 +285,23 @@ class CiteStructureParser:
         """ Resolve `reference` to its concrete node. """
         return self._resolve_groups(self._parse_reference(reference))
 
+    def milestone_anchors(self, reference: str) -> List[saxonlib.PyXdmNode]:
+        """ Concrete nodes of every milestone-mode ancestor unit in `reference`'s chain, in
+        chain (= document) order: e.g. for line "2.3" in a cb/lb tree, the <cb n="2"/> node;
+        for "1.2.2" in a pb/cb/lb tree, the <pb n="1"/> and that page's second <cb/>.
+
+        These milestones give the passage its citation identity but never appear on the
+        resolved node's own ancestor path — milestone "children" are siblings in the document,
+        not descendants — so passage extraction must copy them explicitly. """
+        groups = self._parse_reference(reference)
+        anchors = []
+        for position, (key, _) in enumerate(groups[:-1]):
+            if self.structure_by_key[key].milestone:
+                node = self._resolve_groups(groups[:position + 1])
+                if node is not None:
+                    anchors.append(node)
+        return anchors
+
     def generate_xpath(self, reference):
         groups = self._parse_reference(reference)
 
