@@ -137,7 +137,9 @@ def _get_sibling_xpath(node_xpath: str, prefix: str = ".", ancestor: str = "") -
     if node_xpath == "node()":
         return "./following-sibling::node()"
 
-    return (f"let $end := following-sibling::node()[{prefix}/descendant-or-self::{node_xpath}] "
+    # head(): several siblings can match the boundary xpath (e.g. every later chapter contains
+    # a section n="2"), and only the nearest one bounds the passage.
+    return (f"let $end := head(following-sibling::node()[{prefix}/descendant-or-self::{node_xpath}]) "
             f"return (./following-sibling::node() [. << $end])")
 
 
@@ -185,6 +187,34 @@ local:prune(.)"""
     return x
 
 
+def _prune_at_node(
+        node: saxonlib.PyXdmNode,
+        boundary: saxonlib.PyXdmNode,
+        processor: saxonlib.PySaxonProcessor
+) -> str:
+    """ Same as _prune, but cuts at a concrete boundary node rather than at the first node
+    matching a tag/attribute based xpath fragment: the same fragment (e.g. a section n="2")
+    usually occurs in many places in a document, while the node does not. """
+    xq = processor.new_xquery_processor()
+    xq.set_context(xdm_item=node)
+    xq.set_parameter("boundary", boundary)
+    query = """declare namespace output = 'http://www.w3.org/2010/xslt-xquery-serialization';
+declare default element namespace 'http://www.tei-c.org/ns/1.0';
+declare option output:omit-xml-declaration 'yes';
+declare variable $boundary external;
+declare function local:prune($node, $b) {
+  if ($node instance of element()) then
+    if (empty($node/descendant-or-self::node() intersect $b)) then $node
+    else element {name($node)} {
+      $node/@*,
+      for $child in $node/node()[. << $b] return local:prune($child, $b)
+    }
+  else $node
+};
+local:prune(., $boundary)"""
+    return xq.run_query_to_string(query_text=query)
+
+
 def copy_node(
         node: saxonlib.PyXdmNode,
         processor: saxonlib.PySaxonProcessor,
@@ -203,7 +233,9 @@ def copy_node(
     if include_children:
         # We simply go from the element as a string to an element as XML.
         # We need to workaround false indentation through this xQuery
-        if isinstance(remove_milestone, str):
+        if isinstance(remove_milestone, saxonlib.PyXdmNode):
+            element = _prune_at_node(node, remove_milestone, processor=processor)
+        elif isinstance(remove_milestone, str):
             element = _prune(node, remove_milestone, processor=processor)
         else:
             xq = processor.new_xquery_processor()
@@ -267,14 +299,20 @@ def normalize_xpath(xpath: List[str]) -> List[str]:
             new_xpath.append("/"+xpath[x])
         elif len(xpath[x]) > 0:
             new_xpath.append(xpath[x])
-    return new_xpath
+    # A "." step (from a child citeStructure matching ".//something") selects the node we are
+    # already on: keeping it would copy that node twice in the reconstructed tree.
+    return [step for step in new_xpath if step.strip("/") != "."]
 
 
 def reverse_ancestor(xpaths: List[str]) -> str:
+    strip = re.compile(r"^([./]+)")
+    # A step such as "." (produced by a citeStructure whose child match starts with ".//")
+    # carries no ancestor constraint: stripping it leaves nothing, and keeping it would
+    # generate the invalid "[ancestor::]".
+    xpaths = [stripped for stripped in (strip.sub("", xpath) for xpath in xpaths) if stripped]
     if not xpaths:
         return ""
-    strip = re.compile(r"^([./]+)")
-    here = f"[ancestor::{strip.sub('', xpaths[0])}{reverse_ancestor(xpaths[1:]) if len(xpaths) > 1 else ''}]"
+    here = f"[ancestor::{xpaths[0]}{reverse_ancestor(xpaths[1:]) if len(xpaths) > 1 else ''}]"
     return here
 
 
@@ -299,13 +337,40 @@ def _treat_siblings(
     if isinstance(xpath, saxonlib.PyXdmNode):
         xproc.declare_variable("__boundary")
         xproc.set_parameter("__boundary", xpath)
-        next_nodes = xpath_eval(xproc, "./following-sibling::node()[. << $__boundary]")
+        # "<<" compares start positions, so a sibling that *contains* the boundary also
+        # matches: it is excluded here and copied (pruned) below instead.
+        next_nodes = xpath_eval(
+            xproc,
+            "./following-sibling::node()[. << $__boundary]"
+            "[empty(descendant::node() intersect $__boundary)]"
+        )
         for node in next_nodes:
             if node.node_kind_str == "text":
                 if not last_node.tail:
                     last_node.tail = unescape(_get_text(node, ".", processor=processor))
             else:
                 last_node = copy_node(node, include_children=True, parent=last_node.getparent(), processor=processor)
+
+        # The boundary can sit inside a following sibling (e.g. the next section starts in the
+        # middle of the next <p>): that sibling is not "<< boundary", so it is copied here,
+        # pruned at the boundary.
+        sibling_with_data = xproc.evaluate_single(
+            "./following-sibling::node()[descendant::node() intersect $__boundary]"
+        )
+        if sibling_with_data is not None:
+            pruned = copy_node(
+                sibling_with_data,
+                include_children=True,
+                parent=last_node.getparent(),
+                remove_milestone=xpath,
+                processor=processor
+            )
+            # Nothing of that sibling belongs to the passage (the boundary is its very first
+            # content): drop the empty shell rather than emitting it.
+            if pruned is not None and not "".join(pruned.itertext()):
+                parent = pruned.getparent()
+                if parent is not None:
+                    parent.remove(pruned)
         return last_node
 
     loc_xpath = "node()" if xpath == COPY_UNTIL_END else xpath
@@ -733,13 +798,21 @@ class Document:
                 next_ref = self.get_next(tree, end)
                 if next_ref:
                     next_ref = next_ref.ref
-                    if self.citeStructure[tree].is_milestone_nested(next_ref):
-                        end_sibling = self.citeStructure[tree].resolve_node(next_ref)
-                    else:
+                    # A concrete node is always preferable to a tag/attribute based xpath
+                    # fragment: the fragment (e.g. `milestone[@unit='section'][@n='2']`) also
+                    # matches every other chapter's section 2, which would push the boundary
+                    # far beyond the end of the passage.
+                    end_sibling = self.citeStructure[tree].resolve_node(next_ref)
+                    if end_sibling is None:
                         next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
                         end_sibling = next_ref_xpath.strip("/")
                 elif (milestone_boundary := self.citeStructure[tree].get_next_milestone_boundary(end)) is not None:
                     end_sibling = milestone_boundary
+                elif (unit_boundary := self.citeStructure[tree].get_next_unit_boundary(end)) is not None:
+                    # No next sibling inside the parent unit (e.g. last section of a chapter):
+                    # the passage still stops at the next unit of the same kind, not at the
+                    # end of the document.
+                    end_sibling = unit_boundary
                 else:
                     end_sibling = COPY_UNTIL_END
         else:
@@ -748,13 +821,21 @@ class Document:
                 next_ref = self.get_next(tree, start)
                 if next_ref:
                     next_ref = next_ref.ref
-                    if self.citeStructure[tree].is_milestone_nested(next_ref):
-                        start_sibling = self.citeStructure[tree].resolve_node(next_ref)
-                    else:
+                    # A concrete node is always preferable to a tag/attribute based xpath
+                    # fragment: the fragment (e.g. `milestone[@unit='section'][@n='2']`) also
+                    # matches every other chapter's section 2, which would push the boundary
+                    # far beyond the end of the passage.
+                    start_sibling = self.citeStructure[tree].resolve_node(next_ref)
+                    if start_sibling is None:
                         next_ref_xpath = normalize_xpath(xpath_split(self.citeStructure[tree].generate_xpath(next_ref)))[-1]
                         start_sibling = next_ref_xpath.strip("/")
                 elif (milestone_boundary := self.citeStructure[tree].get_next_milestone_boundary(start)) is not None:
                     start_sibling = milestone_boundary
+                elif (unit_boundary := self.citeStructure[tree].get_next_unit_boundary(start)) is not None:
+                    # No next sibling inside the parent unit (e.g. last section of a chapter):
+                    # the passage still stops at the next unit of the same kind, not at the
+                    # end of the document.
+                    start_sibling = unit_boundary
                 else:
                     start_sibling = COPY_UNTIL_END
 
