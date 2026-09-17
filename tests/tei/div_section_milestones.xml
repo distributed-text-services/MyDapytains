@@ -1,0 +1,17 @@
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <encodingDesc>
+      <refsDecl n="default">
+        <citeStructure match="/TEI/text/body/div" use="@n" unit="chapter">
+          <citeStructure match=".//milestone[@unit='section']" use="@n" unit="section" delim="."/>
+        </citeStructure>
+      </refsDecl>
+    </encodingDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div type="chapter" n="1"><p><milestone unit="section" n="1"/>One one.<milestone unit="section" n="2"/>One two.</p></div>
+      <div type="chapter" n="2"><p>Before.<milestone unit="section" n="1"/>Two one.<milestone unit="section" n="2"/>Two two.</p></div>
+    </body>
+  </text>
+</TEI>

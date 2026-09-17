@@ -531,3 +531,62 @@ def test_standoff_no_standoff():
     doc = Document(f"{local_dir}/base_tei.xml")
     result = tostring(doc.get_passage("Luke 1:1", include_standoff=True), encoding=str)
     assert '<standOff' not in result
+
+
+def test_section_milestones_inside_chapters():
+    """Test milestones cited under a non-milestone, non-traversing parent (a chapter <div>):
+    the same @n occurs in every chapter, so neither the passage nor its boundary may leak
+    into the following chapters"""
+    doc = Document(f"{local_dir}/div_section_milestones.xml")
+
+    refs = doc.get_reffs()
+    assert [(r.ref, [c.ref for c in r.children]) for r in refs] == [
+        ("1", ["1.1", "1.2"]),
+        ("2", ["2.1", "2.2"]),
+    ]
+
+    assert tostring(doc.get_passage("1.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="chapter" n="1"><p><milestone unit="section" n="1"/>One one.</p></div>\n'
+        '      </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+    # Last section of a chapter stops at the end of its own chapter: neither at the end of
+    # the document, nor at the next chapter's first section (chapter 2 opens with "Before.",
+    # which belongs to no section and must not be picked up here)
+    assert tostring(doc.get_passage("1.2"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="chapter" n="1"><p><milestone unit="section" n="2"/>One two.</p></div>\n'
+        '      </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+    assert tostring(doc.get_passage("2.1"), encoding=str) == (
+        '<TEI xmlns="http://www.tei-c.org/ns/1.0"><text>\n'
+        '    <body>\n'
+        '      <div type="chapter" n="2"><p><milestone unit="section" n="1"/>Two one.</p></div>\n'
+        '    </body>\n'
+        '  </text>\n'
+        '</TEI>'
+    )
+
+
+def test_section_milestones_double_slash_match():
+    """A child citeStructure written "//x" behaves like ".//x" """
+    doc = Document(f"{local_dir}/div_section_milestones_double_slash.xml")
+    assert _flat_refs(doc.get_reffs()) == ["1", "1.1", "1.2", "2", "2.1", "2.2"]
+    reference = Document(f"{local_dir}/div_section_milestones.xml")
+    for ref in ["1", "1.1", "1.2", "2.1", "2.2"]:
+        assert tostring(doc.get_passage(ref), encoding=str) == \
+               tostring(reference.get_passage(ref), encoding=str)
+
+
+def test_empty_citation_value_is_reported():
+    """An unusable (empty) citation value points at the offending unit instead of failing
+    later on with an unrelated message"""
+    doc = Document(f"{local_dir}/div_section_milestones_empty_n.xml")
+    with pytest.raises(ValueError, match="Empty citation value for unit 'chapter'"):
+        doc.get_reffs()

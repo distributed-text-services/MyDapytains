@@ -96,6 +96,12 @@ def get_children_cite_structures(elem: saxonlib.PyXdmNode, processor: saxonlib.P
     return []
 
 
+def _relative(prefix: str, xpath: str) -> str:
+    """ Join a "./" prefix with a child citeStructure match. A match may be written "//lb" as
+    well as ".//lb": the naive join gives the invalid ".///lb". """
+    return f"{prefix}{xpath}".replace(".///", ".//")
+
+
 class CiteStructureParser:
     """
 
@@ -277,7 +283,7 @@ class CiteStructureParser:
                 concrete_node = (self._milestone_window(concrete_node, boundary, formatted) or [None])[0]
             else:
                 local_proc = get_xpath_proc(concrete_node, processor=self.processor)
-                concrete_node = local_proc.evaluate_single(f"./{formatted}")
+                concrete_node = local_proc.evaluate_single(_relative("./", formatted))
             prev_structure = structure
         return concrete_node
 
@@ -339,6 +345,53 @@ class CiteStructureParser:
         start_node = self._resolve_groups(groups[:-1])
         return self._milestone_boundary(start_node, parent_structure.match)
 
+    def _first_node_after(self, node: saxonlib.PyXdmNode) -> Optional[saxonlib.PyXdmNode]:
+        """ First node in document order after `node`'s whole subtree, i.e. the point where
+        `node` ends. """
+        xpath_proc = get_xpath_proc(self.doc_root, processor=self.processor)
+        xpath_proc.declare_variable("__node")
+        xpath_proc.set_parameter("__node", node)
+        return xpath_proc.evaluate_single("($__node/following::node())[1]")
+
+    def _earliest(self, *nodes: Optional[saxonlib.PyXdmNode]) -> Optional[saxonlib.PyXdmNode]:
+        """ The first of `nodes` in document order, ignoring the ones that are None. """
+        earliest = None
+        xpath_proc = get_xpath_proc(self.doc_root, processor=self.processor)
+        xpath_proc.declare_variable("__a")
+        xpath_proc.declare_variable("__b")
+        for node in nodes:
+            if node is None:
+                continue
+            if earliest is None:
+                earliest = node
+                continue
+            xpath_proc.set_parameter("__a", node)
+            xpath_proc.set_parameter("__b", earliest)
+            if xpath_proc.effective_boolean_value("$__a << $__b"):
+                earliest = node
+        return earliest
+
+    def get_next_unit_boundary(self, reference: str) -> Optional[saxonlib.PyXdmNode]:
+        """ Return the node that bounds `reference`'s deepest unit when that unit has no next
+        sibling inside its own parent: the next unit of the same kind in document order (e.g.
+        the first section of chapter 8 for the last section of chapter 7), clamped to the end
+        of `reference`'s own parent unit, so a passage never reaches into the following parent
+        (chapter 7's last section stops at the end of chapter 7, it does not pick up what
+        chapter 8 puts before its own first section). Without this bound, the passage would
+        bleed to the end of the document. Returns None when nothing follows `reference`. """
+        groups = self._parse_reference(reference)
+        key, _ = groups[-1]
+        start_node = self._resolve_groups(groups)
+        if start_node is None:
+            return None
+        boundary = self._milestone_boundary(start_node, self.structure_by_key[key].match)
+        if len(groups) < 2:
+            return boundary
+        parent_node = self._resolve_groups(groups[:-1])
+        if parent_node is None:
+            return boundary
+        return self._earliest(boundary, self._first_node_after(parent_node))
+
     def _dispatch(
             self,
             child_xpath: str,
@@ -387,9 +440,16 @@ class CiteStructureParser:
         else:
             xpath_prefix = "./" if unit else ""
             # .evaluate returns None instead of an empty list...
-            values = xpath_proc.evaluate(f"{xpath_prefix}{structure.xpath}") or []
+            values = xpath_proc.evaluate(_relative(xpath_prefix, structure.xpath)) or []
 
-        for value in values:
+        for idx, value in enumerate(values, start=1):
+            if not value.string_value:
+                raise ValueError(
+                    f"Empty citation value for unit '{structure.citeType}' "
+                    f"(match #{idx} of `{structure.xpath}`"
+                    + (f" inside `{unit.ref}`" if unit else "")
+                    + "): the cited node has no value, check the source document."
+                )
             child = CitableUnit(
                 citeType=structure.citeType,
                 ref=f"{prefix}{value.string_value}",
@@ -442,7 +502,7 @@ class CiteStructureParser:
             if milestone_match is not None:
                 results = self._milestone_window(root, boundary, s.xpath)
             else:
-                results = xpath_proc.evaluate(f"{xpath_prefix}{s.xpath}")
+                results = xpath_proc.evaluate(_relative(xpath_prefix, s.xpath))
             if results is not None:
                 unsorted.extend(
                     [
