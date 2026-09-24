@@ -2,6 +2,7 @@ import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from collections import namedtuple, defaultdict
+from dapytains.errors import UnresolvableReference
 from dapytains.processor import get_xpath_proc, saxonlib
 
 _pos_re = re.compile(r'\[(\d+)\]')
@@ -273,10 +274,10 @@ class CiteStructureParser:
         xpath_proc = get_xpath_proc(self.doc_root, processor=self.processor)
         concrete_node = None
         prev_structure: Optional[CitableStructure] = None
-        for key, value in groups:
+        for position, (key, value) in enumerate(groups):
             formatted = self.xpath_matcher[key].format(**{key: value})
             structure = self.structure_by_key[key]
-            if concrete_node is None:
+            if position == 0:
                 concrete_node = xpath_proc.evaluate_single(f"({formatted})[1]")
             elif prev_structure.milestone:
                 boundary = self._milestone_boundary(concrete_node, prev_structure.match)
@@ -284,6 +285,10 @@ class CiteStructureParser:
             else:
                 local_proc = get_xpath_proc(concrete_node, processor=self.processor)
                 concrete_node = local_proc.evaluate_single(_relative("./", formatted))
+            if concrete_node is None:
+                # A missing unit: stop here, instead of looking for its children in the whole
+                # document (which would resolve "9.A" to the first letter A when there is no column 9).
+                return None
             prev_structure = structure
         return concrete_node
 
@@ -321,7 +326,10 @@ class CiteStructureParser:
         # (self-closing elements like <cb/>) cannot be joined with their children via "/", then
         # turn it into its real, DOM-accurate absolute positional XPath so it flows through the
         # rest of the pipeline (document.py's reconstruct_doc) like any other absolute XPath.
-        return self._absolute_path(self.resolve_node(reference))
+        node = self.resolve_node(reference)
+        if node is None:
+            raise UnresolvableReference(reference)
+        return self._absolute_path(node)
 
     def get_next_milestone_boundary(self, reference: str) -> Optional[saxonlib.PyXdmNode]:
         """ If `reference`'s deepest unit is nested directly under a milestone-mode parent

@@ -30,6 +30,9 @@ def get_xpath_proc(elem: saxonlib.PyXdmNode, processor: saxonlib.PySaxonProcesso
     :param elem: An XML node, root or not
     :return: XPathProccesor
     """
+    if elem is None:
+        # Saxon segfaults on a None context instead of raising: fail in Python instead.
+        raise TypeError("get_xpath_proc() needs a node as context, got None")
     xpath = processor.new_xpath_processor()
     xpath.declare_namespace("", "http://www.tei-c.org/ns/1.0")
     xpath.set_context(xdm_item=elem)
